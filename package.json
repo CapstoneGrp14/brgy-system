@@ -1,0 +1,25 @@
+{
+  "name": "brgy-system",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Barangay 591 e-Services Portal — capstone project",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @brgy/api",
+    "dev:worker": "npm run start:worker:dev -w @brgy/api",
+    "dev:web": "npm run dev -w @brgy/web",
+    "build": "npm run build -w @brgy/shared && npm run build -w @brgy/api && npm run build -w @brgy/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "migration:run": "npm run migration:run -w @brgy/api",
+    "format": "prettier --write \"apps/**/src/**/*.{ts,tsx}\" \"packages/**/src/**/*.ts\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

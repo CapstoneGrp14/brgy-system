@@ -1,0 +1,84 @@
+import type { NotificationsResponse, QueueResponse, QueueTab, RequestDto } from '@brgy/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from './client';
+
+export function useMyRequests() {
+  return useQuery({
+    queryKey: ['requests', 'mine'],
+    queryFn: async () => (await api.get<RequestDto[]>('/requests/mine')).data,
+  });
+}
+
+export function useCreateDocumentRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { documentType: string; purpose: string }) =>
+      (await api.post<RequestDto>('/requests/documents', input)).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['requests', 'mine'] }),
+  });
+}
+
+export function useQueue(tab: QueueTab, page: number) {
+  return useQuery({
+    queryKey: ['requests', 'queue', tab, page],
+    queryFn: async () =>
+      (await api.get<QueueResponse>('/requests/queue', { params: { tab, page, pageSize: 5 } })).data,
+    placeholderData: (prev) => prev,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useQueueStats() {
+  return useQuery({
+    queryKey: ['requests', 'stats'],
+    queryFn: async () =>
+      (await api.get<{ openTotal: number; dueSoon: number; overdue: number }>('/requests/stats')).data,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useAdvanceRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api.post<RequestDto>(`/requests/${id}/advance`)).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['requests'] }),
+  });
+}
+
+export function useUploadSignedDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; file: File }) => {
+      const form = new FormData();
+      form.append('file', input.file);
+      return (await api.post<RequestDto>(`/requests/${input.id}/document`, form)).data;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['requests'] }),
+  });
+}
+
+export async function downloadQueueCsv(): Promise<void> {
+  const { data } = await api.get<Blob>('/requests/export.csv', { responseType: 'blob' });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'requests-queue.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => (await api.get<NotificationsResponse>('/notifications')).data,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useMarkAllRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await api.post('/notifications/read-all')).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}

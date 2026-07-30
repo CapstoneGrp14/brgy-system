@@ -1,0 +1,205 @@
+name: brgy-system
+
+x-app-base: &app-base
+  image: node:22-alpine
+  working_dir: /repo
+  volumes:
+    - .:/repo
+    - node_modules:/repo/node_modules
+  environment: &app-env
+    NODE_ENV: development
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_USER: brgy
+    DB_PASSWORD: brgy_dev_password
+    DB_NAME: brgy591
+    REDIS_URL: redis://redis:6379
+    RABBITMQ_URL: amqp://brgy:brgy_dev_password@rabbitmq:5672
+    MINIO_ENDPOINT: minio
+    MINIO_PORT: "9000"
+    # Browser-facing address for presigned links (host port mapping of minio)
+    MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-localhost}
+    MINIO_PUBLIC_PORT: "9002"
+    MINIO_USE_SSL: "false"
+    MINIO_ACCESS_KEY: brgy-minio
+    MINIO_SECRET_KEY: brgy_dev_password
+    # Mail: MailHog by default; set RESEND_API_KEY in .env to switch every
+    # outbound email to Resend (smtp.resend.com) — no other change needed.
+    SMTP_HOST: mailhog
+    SMTP_PORT: "1025"
+    RESEND_API_KEY: ${RESEND_API_KEY:-}
+    MAIL_FROM: ${MAIL_FROM:-Barangay 591 <no-reply@brgy591.local>}
+    # 591 Assistant LLM (Ollama + Gemma 3). Empty OLLAMA_URL → rule-based bot.
+    OLLAMA_URL: http://ollama:11434
+    OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
+    WEB_URL: ${WEB_URL:-http://localhost:5173}
+    JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+    JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+    GOTENBERG_URL: http://gotenberg:3000
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root_dev_password
+      MYSQL_DATABASE: brgy591
+      MYSQL_USER: brgy
+      MYSQL_PASSWORD: brgy_dev_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_dev_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379" # host 6380 to avoid clashing with other local Redis containers
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    hostname: brgy-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: brgy
+      RABBITMQ_DEFAULT_PASS: brgy_dev_password
+    ports:
+      - "5673:5672" # host 5673 to avoid clashes with other local projects
+      - "15673:15672" # management UI → http://localhost:15673
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: brgy-minio
+      MINIO_ROOT_PASSWORD: brgy_dev_password
+    ports:
+      - "9002:9000" # host 9002 to avoid clashes with other local projects
+      - "9003:9001" # console → http://localhost:9003
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 brgy-minio brgy_dev_password; do
+        echo 'waiting for minio…'; sleep 2;
+      done &&
+      mc mb -p local/uploads local/documents &&
+      echo 'MinIO buckets ready'
+      "
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web UI
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # One-shot: pulls the Gemma 3 model into the shared volume (first run downloads it).
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: >
+      /bin/sh -c "ollama pull ${OLLAMA_MODEL:-gemma3:4b} && echo 'Gemma model ready'"
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    ports:
+      - "3010:3000" # docx → pdf conversion API
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  api:
+    <<: *app-base
+    command: sh -c "npm install && npm run build -w @brgy/shared && npm run migration:run -w @brgy/api && npm run start:dev -w @brgy/api"
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *app-env
+      API_PORT: "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s # first boot runs npm install + migrations
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # worker/web skip npm install + shared build: api runs both before its
+  # healthcheck passes, and concurrent installs in the shared volume collide.
+  worker:
+    <<: *app-base
+    command: npm run start:worker:dev -w @brgy/api
+    depends_on:
+      api:
+        condition: service_healthy # deps installed + shared built + migrations done
+
+  web:
+    <<: *app-base
+    command: npm run dev -w @brgy/web -- --host
+    ports:
+      - "5173:5173"
+    environment:
+      <<: *app-env
+      VITE_API_PROXY: http://api:3000
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  minio_data:
+  rabbitmq_data:
+  ollama_models:
+  node_modules:
