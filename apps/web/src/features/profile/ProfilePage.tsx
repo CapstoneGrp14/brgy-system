@@ -1,6 +1,7 @@
 import { VerificationStatus } from '@brgy/shared';
 import { useMe } from '../../api/auth';
 import { card } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 
 function Field({ labelText, value }: { labelText: string; value: string }) {
   return (
@@ -16,9 +17,10 @@ function Field({ labelText, value }: { labelText: string; value: string }) {
 }
 
 export function ProfilePage() {
+  const t = useT();
   const { data: me, isLoading } = useMe();
 
-  if (isLoading || !me) return <div style={{ color: '#64748B' }}>Loading profile…</div>;
+  if (isLoading || !me) return <div style={{ color: '#64748B' }}>{t('Loading profile…')}</div>;
 
   const verified = me.verificationStatus === VerificationStatus.VERIFIED;
   const age = me.birthdate
@@ -46,18 +48,18 @@ export function ProfilePage() {
               color: verified ? '#1F8B4C' : '#A17F1A',
             }}
           >
-            {verified ? '● VERIFIED RESIDENT' : '● PENDING VERIFICATION'}
+            {verified ? t('● VERIFIED RESIDENT') : t('● PENDING VERIFICATION')}
           </span>
         </div>
       </div>
 
-      <Field labelText="Address" value={me.address ?? '—'} />
-      <Field labelText="Contact Number" value={me.phone ?? '—'} />
-      <Field labelText="Email" value={me.email} />
-      <Field labelText="Age / Civil Status" value={`${age ?? '—'} / ${me.civilStatus ?? '—'}`} />
+      <Field labelText={t('Address')} value={me.address ?? '—'} />
+      <Field labelText={t('Contact Number')} value={me.phone ?? '—'} />
+      <Field labelText={t('Email')} value={me.email} />
+      <Field labelText={t('Age / Civil Status')} value={`${age ?? '—'} / ${me.civilStatus ?? '—'}`} />
 
       <p style={{ fontSize: 12.5, color: '#8A97AB', marginTop: 4, marginBottom: 0 }}>
-        Core details are matched against the Barangay Census and cannot be changed manually. Contact the office for corrections.
+        {t('Core details are matched against the Barangay Census and cannot be changed manually. Contact the office for corrections.')}
       </p>
     </div>
   );

@@ -1,5 +1,6 @@
 import { isRouteErrorResponse, Link, useNavigate, useRouteError } from 'react-router-dom';
 import { btnPrimary } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 import { roleHome, useAuthStore } from '../../stores/auth';
 
 function ErrorShell({
@@ -67,23 +68,26 @@ export function NotFoundPage({ inShell = false }: { inShell?: boolean }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const home = user ? roleHome(user.role) : '/login';
+  const t = useT();
 
   return (
     <ErrorShell
       code="404"
-      titleText="Page not found po"
-      message="The page you're looking for doesn't exist or may have been moved. Check the address, or head back to your dashboard."
+      titleText={t('Page not found po')}
+      message={t(
+        "The page you're looking for doesn't exist or may have been moved. Check the address, or head back to your dashboard.",
+      )}
       fullPage={!inShell}
     >
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
         <Link to={home} style={{ ...btnPrimary, width: 'auto', padding: '11px 22px', textDecoration: 'none', display: 'inline-block' }}>
-          🏠 {user ? 'Go to Dashboard' : 'Go to Sign In'}
+          🏠 {user ? t('Go to Dashboard') : t('Go to Sign In')}
         </Link>
         <button
           onClick={() => navigate(-1)}
           style={{ background: '#fff', border: '2px solid #DCE3EE', color: '#2E3A52', borderRadius: 9, padding: '11px 20px', font: '700 13.5px Poppins, sans-serif', cursor: 'pointer' }}
         >
-          ← Go Back
+          {t('← Go Back')}
         </button>
       </div>
     </ErrorShell>
@@ -95,6 +99,7 @@ export function ErrorBoundaryPage() {
   const error = useRouteError();
   const user = useAuthStore((s) => s.user);
   const home = user ? roleHome(user.role) : '/login';
+  const t = useT();
 
   if (isRouteErrorResponse(error) && error.status === 404) return <NotFoundPage />;
 
@@ -103,29 +108,31 @@ export function ErrorBoundaryPage() {
       ? `${error.status} ${error.statusText}`
       : error instanceof Error
         ? error.message
-        : 'Unknown error';
+        : t('Unknown error');
 
   return (
     <ErrorShell
       code="Oops"
-      titleText="Something went wrong"
-      message="An unexpected error occurred while loading this page. Try again — if it keeps happening, please report it at the barangay hall front desk."
+      titleText={t('Something went wrong')}
+      message={t(
+        'An unexpected error occurred while loading this page. Try again — if it keeps happening, please report it at the barangay hall front desk.',
+      )}
       fullPage
     >
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
         <button onClick={() => window.location.reload()} style={{ ...btnPrimary, width: 'auto', padding: '11px 22px' }}>
-          🔄 Try Again
+          {t('🔄 Try Again')}
         </button>
         <Link
           to={home}
           onClick={() => setTimeout(() => window.location.assign(home), 0)}
           style={{ background: '#fff', border: '2px solid #DCE3EE', color: '#2E3A52', borderRadius: 9, padding: '11px 20px', font: '700 13.5px Poppins, sans-serif', textDecoration: 'none', display: 'inline-block' }}
         >
-          🏠 {user ? 'Go to Dashboard' : 'Go to Sign In'}
+          🏠 {user ? t('Go to Dashboard') : t('Go to Sign In')}
         </Link>
       </div>
       <details style={{ marginTop: 18, textAlign: 'left' }}>
-        <summary style={{ fontSize: 12, color: '#8A97AB', cursor: 'pointer' }}>Technical details</summary>
+        <summary style={{ fontSize: 12, color: '#8A97AB', cursor: 'pointer' }}>{t('Technical details')}</summary>
         <pre
           style={{
             margin: '8px 0 0',

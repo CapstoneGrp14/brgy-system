@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { acceptInvite } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, input, label } from '../../components/ui/kit';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { roleHome } from '../../stores/auth';
+import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 import { AuthCard } from './AuthCard';
 
@@ -11,6 +13,7 @@ export function AcceptInvitePage() {
   const token = params.get('token') ?? '';
   const navigate = useNavigate();
   const toast = useUiStore((s) => s.toast);
+  const t = useT();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [phone, setPhone] = useState('');
@@ -20,18 +23,18 @@ export function AcceptInvitePage() {
   const submit = async () => {
     if (busy) return;
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setError(t('Passwords do not match.'));
       return;
     }
     setError('');
     setBusy(true);
     try {
       const session = await acceptInvite({ token, password, phone: phone || undefined });
-      toast(`🎉 Welcome aboard, ${session.user.fullName.split(' ')[0]}!`);
+      toast(t('🎉 Welcome aboard, {name}!', { name: session.user.fullName.split(' ')[0] }));
       navigate(roleHome(session.user.role));
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      setError(Array.isArray(msg) ? msg[0] : (msg ?? 'Could not accept the invitation.'));
+      setError(Array.isArray(msg) ? msg[0] : (msg ?? t('Could not accept the invitation.')));
     } finally {
       setBusy(false);
     }
@@ -39,23 +42,23 @@ export function AcceptInvitePage() {
 
   if (!token) {
     return (
-      <AuthCard title="Staff invitation">
-        <div style={errorText}>This invitation link is incomplete — use the link from your email.</div>
+      <AuthCard title={t('Staff invitation')}>
+        <div style={errorText}>{t('This invitation link is incomplete — use the link from your email.')}</div>
       </AuthCard>
     );
   }
 
   return (
-    <AuthCard title="Set up your staff account" subtitle="Choose a password to activate your Barangay 591 staff access.">
-      <label style={label}>Password</label>
-      <input style={{ ...input, marginBottom: 12 }} type="password" placeholder="min. 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <label style={label}>Confirm Password</label>
-      <input style={{ ...input, marginBottom: 12 }} type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-      <label style={label}>Mobile Number (optional)</label>
+    <AuthCard title={t('Set up your staff account')} subtitle={t('Choose a password to activate your Barangay 591 staff access.')}>
+      <label style={label}>{t('Password')}</label>
+      <PasswordInput style={{ marginBottom: 12 }} placeholder={t('min. 8 characters')} value={password} onChange={setPassword} autoComplete="new-password" />
+      <label style={label}>{t('Confirm Password')}</label>
+      <PasswordInput style={{ marginBottom: 12 }} value={confirm} onChange={setConfirm} autoComplete="new-password" />
+      <label style={label}>{t('Mobile Number (optional)')}</label>
       <input style={{ ...input, marginBottom: 14 }} placeholder="09XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
       {error && <div style={{ ...errorText, marginBottom: 12 }}>{error}</div>}
       <button onClick={submit} style={busy ? btnBusy : btnPrimary}>
-        {busy ? 'Activating…' : 'Activate Account'}
+        {busy ? t('Activating…') : t('Activate Account')}
       </button>
     </AuthCard>
   );

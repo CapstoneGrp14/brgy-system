@@ -66,6 +66,23 @@ export function useResolveSos() {
   });
 }
 
+export interface SosHotspotPoint {
+  lat: number;
+  lng: number;
+  status: 'ACTIVE' | 'RESOLVED';
+  createdAt: string;
+}
+
+/** Historical incident points for the staff/admin SOS hotspot heat layer. */
+export function useSosHotspot(enabled = true) {
+  return useQuery({
+    queryKey: ['sos', 'hotspot'],
+    queryFn: async () => (await api.get<SosHotspotPoint[]>('/sos/hotspot')).data,
+    refetchInterval: 60_000,
+    enabled,
+  });
+}
+
 // ── Staff chat ──
 export function useChatHistory() {
   return useQuery({

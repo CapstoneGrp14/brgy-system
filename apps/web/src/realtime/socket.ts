@@ -44,6 +44,12 @@ export function initRealtime(queryClient: QueryClient): void {
       void queryClient.invalidateQueries({ queryKey: ['announcements'] });
       if (a.urgent) useUiStore.getState().toast(`🚨 URGENT: ${a.title}`);
     });
+    socket.on('announcement:update', () => {
+      void queryClient.invalidateQueries({ queryKey: ['announcements'] });
+    });
+    socket.on('announcement:delete', () => {
+      void queryClient.invalidateQueries({ queryKey: ['announcements'] });
+    });
 
     socket.on('chat:new', (message: { id: string; senderId?: string }) => {
       queryClient.setQueryData<{ id: string }[]>(['chat', 'staff'], (old) => {

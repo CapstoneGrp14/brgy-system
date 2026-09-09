@@ -5,10 +5,12 @@ import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { REQUEST_ICON, STATUS_PILL, fmtDate } from '../../components/ui/status';
 import { btnPrimary, card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
 /** ARTA SLA Report — per-request audit (FR-12.4) with year filter + AI summary. */
 export function ArtaReportPage() {
+  const t = useT();
   const toast = useUiStore((s) => s.toast);
   const [year, setYear] = useState<string>('all');
   const yearNum = year === 'all' ? undefined : Number(year);
@@ -28,7 +30,7 @@ export function ArtaReportPage() {
     try {
       setSummary(await fetchArtaSummary(yearNum));
     } catch {
-      toast('Could not draft the summary — try again.');
+      toast(t('Could not draft the summary — try again.'));
     } finally {
       setSummaryBusy(false);
     }
@@ -38,12 +40,12 @@ export function ArtaReportPage() {
     <div style={{ ...card, padding: '22px 26px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>ARTA SLA Report</h2>
+          <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{t('ARTA SLA Report')}</h2>
           <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 14px' }}>
-            Per-request audit against the RA 11032 3-7-20 rule · {list.length} request{list.length === 1 ? '' : 's'}
-            {year !== 'all' && ` in ${year}`} ·{' '}
-            {completed.length ? `${Math.round((onTime / completed.length) * 100)}% completed on time` : 'no completions yet'}
-            {overdueNow > 0 && ` · ${overdueNow} currently overdue`}
+            {t('Per-request audit against the RA 11032 3-7-20 rule')} · {t(list.length === 1 ? '{n} request' : '{n} requests', { n: list.length })}
+            {year !== 'all' && ` ${t('in {year}', { year })}`} ·{' '}
+            {completed.length ? t('{pct}% completed on time', { pct: Math.round((onTime / completed.length) * 100) }) : t('no completions yet')}
+            {overdueNow > 0 && ` · ${t('{n} currently overdue', { n: overdueNow })}`}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -51,7 +53,7 @@ export function ArtaReportPage() {
             value={year}
             onChange={setYear}
             options={[
-              { value: 'all', labelText: 'All years' },
+              { value: 'all', labelText: t('All years') },
               ...years.map((y) => ({ value: String(y), labelText: String(y) })),
             ]}
             style={{ width: 130 }}
@@ -60,10 +62,10 @@ export function ArtaReportPage() {
             onClick={openSummary}
             style={{ background: '#fff', border: '2px solid #1E3A5F', color: '#1E3A5F', borderRadius: 9, padding: '9px 16px', font: '700 12.5px Poppins, sans-serif', cursor: 'pointer' }}
           >
-            {summaryBusy ? 'Drafting…' : '✨ AI Summary'}
+            {summaryBusy ? t('Drafting…') : t('✨ AI Summary')}
           </button>
           <button onClick={() => void downloadArtaCsv(yearNum)} style={{ ...btnPrimary, width: 'auto', padding: '9px 16px', fontSize: 12.5 }}>
-            ⬇ Export CSV
+            {t('⬇ Export CSV')}
           </button>
         </div>
       </div>
@@ -77,18 +79,18 @@ export function ArtaReportPage() {
           </colgroup>
           <thead>
             <tr>
-              <th style={th}>REQUEST</th>
-              <th style={th}>RESIDENT</th>
-              <th style={th}>SLA CLASS</th>
-              <th style={th}>FILED</th>
-              <th style={th}>ARTA TARGET</th>
-              <th style={th}>COMPLETED</th>
-              <th style={th}>VERDICT</th>
+              <th style={th}>{t('REQUEST')}</th>
+              <th style={th}>{t('RESIDENT')}</th>
+              <th style={th}>{t('SLA CLASS')}</th>
+              <th style={th}>{t('FILED')}</th>
+              <th style={th}>{t('ARTA TARGET')}</th>
+              <th style={th}>{t('COMPLETED')}</th>
+              <th style={th}>{t('VERDICT')}</th>
             </tr>
           </thead>
           <tbody>
             {list.length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={7}>No requests {year === 'all' ? 'yet' : `in ${year}`}.</td></tr>
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={7}>{year === 'all' ? t('No requests yet.') : t('No requests in {year}.', { year })}</td></tr>
             )}
             {list.map((r) => (
               <tr key={r.id} style={r.overdueNow ? { background: '#FEF5F4', boxShadow: 'inset 3px 0 0 #D64541' } : {}}>
@@ -96,17 +98,17 @@ export function ArtaReportPage() {
                   {REQUEST_ICON[r.type as keyof typeof REQUEST_ICON] ?? '📄'} {r.title}
                 </td>
                 <td style={td}>{r.resident}</td>
-                <td style={td}>{SLA_META[r.slaClass as SlaClass]?.labelText ?? r.slaClass}</td>
+                <td style={td}>{t(SLA_META[r.slaClass as SlaClass]?.labelText ?? r.slaClass)}</td>
                 <td style={td}>{fmtDate(r.filedAt)}</td>
                 <td style={td}>{fmtDate(r.dueAt)}</td>
                 <td style={td}>{r.completedAt ? fmtDate(r.completedAt) : '—'}</td>
                 <td style={td}>
-                  {r.onTime === true && <span style={pill('green')}>✓ On Time</span>}
-                  {r.onTime === false && <span style={pill('red')}>Late</span>}
-                  {r.onTime === null && r.overdueNow && <span style={pill('red')}>Overdue</span>}
+                  {r.onTime === true && <span style={pill('green')}>{t('✓ On Time')}</span>}
+                  {r.onTime === false && <span style={pill('red')}>{t('Late')}</span>}
+                  {r.onTime === null && r.overdueNow && <span style={pill('red')}>{t('Overdue')}</span>}
                   {r.onTime === null && !r.overdueNow && (
                     <span style={pill(STATUS_PILL[r.status as keyof typeof STATUS_PILL]?.kind ?? 'blue')}>
-                      {STATUS_PILL[r.status as keyof typeof STATUS_PILL]?.labelText ?? r.status}
+                      {t(STATUS_PILL[r.status as keyof typeof STATUS_PILL]?.labelText ?? r.status)}
                     </span>
                   )}
                 </td>
@@ -117,20 +119,20 @@ export function ArtaReportPage() {
       </div>
 
       {summary !== null && (
-        <Modal title={`✨ ARTA Summary — ${year === 'all' ? 'All Years' : year}`} onClose={() => setSummary(null)} width={620}>
+        <Modal title={t('✨ ARTA Summary — {label}', { label: year === 'all' ? t('All Years') : year })} onClose={() => setSummary(null)} width={620}>
           <p style={{ fontSize: 13.5, color: '#2E3A52', lineHeight: 1.7, margin: '0 0 14px', whiteSpace: 'pre-line' }}>{summary}</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11.5, color: '#8A97AB' }}>
-              Drafted from live ARTA records — review before publishing.
+              {t('Drafted from live ARTA records — review before publishing.')}
             </span>
             <button
               onClick={() => {
                 void navigator.clipboard.writeText(summary);
-                toast('📋 Summary copied to clipboard.');
+                toast(t('📋 Summary copied to clipboard.'));
               }}
               style={{ ...btnPrimary, width: 'auto', padding: '9px 16px', fontSize: 12.5 }}
             >
-              Copy to Clipboard
+              {t('Copy to Clipboard')}
             </button>
           </div>
         </Modal>

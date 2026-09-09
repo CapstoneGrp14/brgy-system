@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useT } from '../../i18n';
 
 export interface SelectOption {
   value: string;
@@ -13,7 +14,7 @@ export function Select({
   value,
   options,
   onChange,
-  placeholder = 'Select…',
+  placeholder,
   compact = false,
   style,
 }: {
@@ -28,6 +29,7 @@ export function Select({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value);
+  const t = useT();
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +75,7 @@ export function Select({
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {selected?.labelText ?? placeholder}
+          {selected?.labelText ?? placeholder ?? t('Select…')}
         </span>
         <svg
           width="12"

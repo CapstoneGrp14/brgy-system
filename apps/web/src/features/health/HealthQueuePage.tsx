@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import { useAdvanceRequest } from '../../api/requests';
 import { card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { STATUS_PILL, deadlineChip, fmtDate, pillForRequest } from '../../components/ui/status';
+import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
 function useHealthQueue() {
@@ -20,24 +21,25 @@ export function HealthQueuePage() {
   const { data: items } = useHealthQueue();
   const advance = useAdvanceRequest();
   const toast = useUiStore((s) => s.toast);
+  const t = useT();
 
   const onAction = async (id: string) => {
     try {
       const updated = await advance.mutateAsync(id);
-      toast(`✅ ${updated.title} → ${pillForRequest(updated).labelText}`);
+      toast(t('✅ {title} → {status}', { title: updated.title, status: t(pillForRequest(updated).labelText) }));
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Action failed — try again.');
+      toast(err?.response?.data?.message ?? t('Action failed — try again.'));
     }
   };
 
   return (
     <div style={{ ...card, padding: '22px 26px' }}>
       <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>
-        Health & Medicine Requests
+        {t('Health & Medicine Requests')}
       </h2>
       <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 14px' }}>
-        Free medicine and equipment lending — releasing dispenses stock; marking equipment
-        <strong> Returned</strong> puts the unit back into inventory.
+        {t('Free medicine and equipment lending — releasing dispenses stock; marking equipment')}
+        <strong> {t('Returned')}</strong> {t('puts the unit back into inventory.')}
       </p>
 
       <div style={{ overflowX: 'auto' }}>
@@ -49,17 +51,17 @@ export function HealthQueuePage() {
           </colgroup>
           <thead>
             <tr>
-              <th style={th}>REQUEST</th>
-              <th style={th}>RESIDENT</th>
-              <th style={th}>FILED</th>
-              <th style={th}>ARTA DEADLINE</th>
-              <th style={th}>STATUS</th>
-              <th style={th}>ACTION</th>
+              <th style={th}>{t('REQUEST')}</th>
+              <th style={th}>{t('RESIDENT')}</th>
+              <th style={th}>{t('FILED')}</th>
+              <th style={th}>{t('ARTA DEADLINE')}</th>
+              <th style={th}>{t('STATUS')}</th>
+              <th style={th}>{t('ACTION')}</th>
             </tr>
           </thead>
           <tbody>
             {(items ?? []).length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>No health requests. 🎉</td></tr>
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>{t('No health requests. 🎉')}</td></tr>
             )}
             {(items ?? []).map((r) => {
               const chip = deadlineChip(r);
@@ -80,7 +82,7 @@ export function HealthQueuePage() {
                       ? <span style={{ color: '#9AA6B7' }}>—</span>
                       : <span style={pill(chip.kind)}>{chip.text}</span>}
                   </td>
-                  <td style={td}><span style={pill(status.kind)}>{status.labelText}</span></td>
+                  <td style={td}><span style={pill(status.kind)}>{t(status.labelText)}</span></td>
                   <td style={td}>
                     {r.actionText ? (
                       <button
@@ -88,7 +90,7 @@ export function HealthQueuePage() {
                         disabled={advance.isPending}
                         style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
-                        {r.actionText}
+                        {t(r.actionText)}
                       </button>
                     ) : (
                       <span style={{ color: '#9AA6B7', fontSize: 13 }}>—</span>

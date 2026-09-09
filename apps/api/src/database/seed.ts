@@ -93,6 +93,39 @@ const SAMPLE_REQUESTS: Array<{
   { email: 'juan@example.com', type: RequestType.DOCUMENT, subtype: 'RESIDENCY_CERTIFICATE', title: 'Certificate of Residency', purpose: 'School requirement', sla: SlaClass.SIMPLE_3, status: RequestStatus.PENDING, filedDaysAgo: 0 },
 ];
 
+/**
+ * Sample SOS alerts so the staff map demos the hotspot heat layer + live pins.
+ * Coordinates sit inside the Barangay 591 boundary (see packages/shared/geo.ts),
+ * clustered so recurring-trouble spots glow. RESOLVED rows feed the hotspot;
+ * ACTIVE rows drop live pins. Seeded only when the table is empty.
+ */
+const SAMPLE_SOS: Array<{
+  email: string;
+  lat: number;
+  lng: number;
+  accuracy: number;
+  status: 'ACTIVE' | 'RESOLVED';
+  hoursAgo: number;
+}> = [
+  // Hotspot cluster A — busy corner near the barangay hall (5 past incidents).
+  { email: 'ricardo@example.com', lat: 14.59905, lng: 121.01465, accuracy: 12, status: 'RESOLVED', hoursAgo: 26 },
+  { email: 'lorna@example.com', lat: 14.599, lng: 121.0146, accuracy: 18, status: 'RESOLVED', hoursAgo: 74 },
+  { email: 'maria.t@example.com', lat: 14.5991, lng: 121.0147, accuracy: 9, status: 'RESOLVED', hoursAgo: 120 },
+  { email: 'juan@example.com', lat: 14.59902, lng: 121.01472, accuracy: 22, status: 'RESOLVED', hoursAgo: 200 },
+  { email: 'eduardo@example.com', lat: 14.59908, lng: 121.01458, accuracy: 15, status: 'RESOLVED', hoursAgo: 320 },
+  // Hotspot cluster B — near the covered court (4 past incidents).
+  { email: 'rosario@example.com', lat: 14.5989, lng: 121.0151, accuracy: 14, status: 'RESOLVED', hoursAgo: 40 },
+  { email: 'ricardo@example.com', lat: 14.59885, lng: 121.01505, accuracy: 20, status: 'RESOLVED', hoursAgo: 96 },
+  { email: 'lorna@example.com', lat: 14.59895, lng: 121.01515, accuracy: 11, status: 'RESOLVED', hoursAgo: 168 },
+  { email: 'maria.t@example.com', lat: 14.59882, lng: 121.01508, accuracy: 16, status: 'RESOLVED', hoursAgo: 260 },
+  // Lighter cluster C — Teresa St. (2 past incidents).
+  { email: 'juan@example.com', lat: 14.5998, lng: 121.0135, accuracy: 13, status: 'RESOLVED', hoursAgo: 60 },
+  { email: 'eduardo@example.com', lat: 14.59965, lng: 121.0134, accuracy: 25, status: 'RESOLVED', hoursAgo: 145 },
+  // Currently ACTIVE — live pins on the map (one lands inside cluster A, one in B).
+  { email: 'antonette@gmail.com', lat: 14.59895, lng: 121.01468, accuracy: 8, status: 'ACTIVE', hoursAgo: 0 },
+  { email: 'rosario@example.com', lat: 14.59888, lng: 121.01512, accuracy: 30, status: 'ACTIVE', hoursAgo: 1 },
+];
+
 const DEMO_PASSWORD = 'password123';
 
 async function main() {
@@ -233,6 +266,26 @@ async function main() {
       );
       console.log(`request+ ${r.title} (${r.status})`);
     }
+  }
+
+  const [{ n: sosCount }] = await dataSource.query('SELECT COUNT(*) AS n FROM sos_alerts');
+  if (Number(sosCount) === 0) {
+    for (const s of SAMPLE_SOS) {
+      const [user] = await dataSource.query('SELECT id, full_name FROM users WHERE email = ?', [
+        s.email,
+      ]);
+      if (!user) continue;
+      const createdAt = new Date(Date.now() - s.hoursAgo * 3600 * 1000);
+      // Resolved incidents were attended a little after they came in.
+      const resolvedAt = s.status === 'RESOLVED' ? new Date(createdAt.getTime() + 25 * 60 * 1000) : null;
+      const resolvedBy = s.status === 'RESOLVED' ? 'William B. Castro — Barangay Staff' : null;
+      await dataSource.query(
+        `INSERT INTO sos_alerts (id, user_id, lat, lng, accuracy, status, resolved_by, resolved_at, created_at)
+         VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [user.id, s.lat, s.lng, s.accuracy, s.status, resolvedBy, resolvedAt, createdAt],
+      );
+    }
+    console.log(`sos    + ${SAMPLE_SOS.length} sample alerts (${SAMPLE_SOS.filter((s) => s.status === 'ACTIVE').length} active, rest resolved for hotspot)`);
   }
 
   console.log(`\nSeed complete. Demo password for all accounts: ${DEMO_PASSWORD}`);

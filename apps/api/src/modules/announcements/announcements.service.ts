@@ -1,5 +1,5 @@
 import { Role } from '@brgy/shared';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { In, Repository } from 'typeorm';
@@ -141,5 +141,67 @@ export class AnnouncementsService {
       target: `${saved.title} [${[input.banner && 'banner', input.email && `email ×${recipients}`, photoKey && 'photo'].filter(Boolean).join(', ') || 'feed only'}]`,
     });
     return view;
+  }
+
+  /**
+   * Edit an existing post (staff only). Does NOT re-run the email/urgent fan-out —
+   * editing is a correction, not a re-broadcast, so residents aren't re-notified.
+   */
+  async update(
+    actor: { id: string; fullName: string; role: Role },
+    id: string,
+    input: { title: string; body: string; banner: boolean; email: boolean; urgent: boolean; removePhoto?: boolean },
+    photo?: Express.Multer.File,
+  ): Promise<AnnouncementView> {
+    const post = await this.announcements.findOne({ where: { id } });
+    if (!post) throw new NotFoundException('Announcement not found.');
+
+    if (photo) {
+      // Replace the banner image; drop the old object so MinIO doesn't accumulate orphans.
+      if (post.photoKey) await this.storage.removeObject(UPLOADS_BUCKET, post.photoKey).catch(() => undefined);
+      const ext = (photo.originalname.split('.').pop() ?? 'jpg').toLowerCase();
+      const photoKey = `announcements/${randomUUID()}.${ext}`;
+      await this.storage.putObject(UPLOADS_BUCKET, photoKey, photo.buffer, photo.mimetype);
+      post.photoKey = photoKey;
+    } else if (input.removePhoto && post.photoKey) {
+      await this.storage.removeObject(UPLOADS_BUCKET, post.photoKey).catch(() => undefined);
+      post.photoKey = null;
+    }
+
+    post.title = input.title.trim();
+    post.body = input.body.trim();
+    post.urgent = input.urgent;
+    post.channelBanner = input.banner;
+    post.channelEmail = input.email;
+
+    const saved = await this.announcements.save(post);
+    const view = await this.toView(saved);
+    this.gateway.emitAll('announcement:update', view);
+
+    this.audit.log({
+      actorLabel: actor.fullName,
+      actorId: actor.id,
+      action: 'Edited Announcement',
+      target: saved.title,
+    });
+    return view;
+  }
+
+  /** Remove a post (staff only) and its banner image. */
+  async remove(actor: { id: string; fullName: string; role: Role }, id: string): Promise<{ id: string }> {
+    const post = await this.announcements.findOne({ where: { id } });
+    if (!post) throw new NotFoundException('Announcement not found.');
+
+    if (post.photoKey) await this.storage.removeObject(UPLOADS_BUCKET, post.photoKey).catch(() => undefined);
+    await this.announcements.remove(post);
+    this.gateway.emitAll('announcement:delete', { id });
+
+    this.audit.log({
+      actorLabel: actor.fullName,
+      actorId: actor.id,
+      action: 'Deleted Announcement',
+      target: post.title,
+    });
+    return { id };
   }
 }

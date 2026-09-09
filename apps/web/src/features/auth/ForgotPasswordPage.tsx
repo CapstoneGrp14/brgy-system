@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { forgotPassword } from '../../api/auth';
 import { btnBusy, btnPrimary, input, label, successText } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 import { AuthCard } from './AuthCard';
 
 export function ForgotPasswordPage() {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -20,14 +22,14 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <AuthCard title="Forgot password" subtitle="We'll email you a link to reset it (valid for 30 minutes).">
+    <AuthCard title={t('Forgot password')} subtitle={t("We'll email you a link to reset it (valid for 30 minutes).")}>
       {sent ? (
         <div style={successText}>
-          📧 If an account exists for <strong>{email}</strong>, a reset link is on its way. Check your inbox.
+          {t('📧 If an account exists for')} <strong>{email}</strong>{t(', a reset link is on its way. Check your inbox.')}
         </div>
       ) : (
         <>
-          <label style={label}>Email</label>
+          <label style={label}>{t('Email')}</label>
           <input
             style={{ ...input, marginBottom: 14 }}
             placeholder="you@email.com"
@@ -36,7 +38,7 @@ export function ForgotPasswordPage() {
             onKeyDown={(e) => e.key === 'Enter' && submit()}
           />
           <button onClick={submit} style={busy ? btnBusy : btnPrimary}>
-            {busy ? 'Sending…' : 'Send Reset Link'}
+            {busy ? t('Sending…') : t('Send Reset Link')}
           </button>
         </>
       )}

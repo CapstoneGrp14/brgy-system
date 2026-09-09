@@ -13,6 +13,7 @@ import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { DetailRow, Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { fmtDateLong } from '../../components/ui/status';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 
@@ -27,6 +28,7 @@ export function StaffComplaintsPage() {
   const assign = useAssignLupon();
   const encode = useEncodeBlotter();
   const toast = useUiStore((s) => s.toast);
+  const t = useT();
   const isMobile = useIsMobile();
   const [showBlotter, setShowBlotter] = useState(false);
   const [blotter, setBlotter] = useState(emptyBlotter);
@@ -36,7 +38,7 @@ export function StaffComplaintsPage() {
 
   const submitBlotter = async () => {
     if (!blotter.caseTitle.trim() || blotter.description.trim().length < 10) {
-      toast('Give the blotter a title and at least a short description.');
+      toast(t('Give the blotter a title and at least a short description.'));
       return;
     }
     try {
@@ -46,30 +48,30 @@ export function StaffComplaintsPage() {
         respondentName: blotter.respondentName.trim() || 'N/A',
         description: blotter.description.trim(),
       });
-      toast('📝 Blotter entry recorded.');
+      toast(t('📝 Blotter entry recorded.'));
       setBlotter(emptyBlotter);
       setShowBlotter(false);
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      toast(Array.isArray(msg) ? msg[0] : (msg ?? 'Encoding failed.'));
+      toast(Array.isArray(msg) ? msg[0] : (msg ?? t('Encoding failed.')));
     }
   };
 
   const onAdvance = async (id: string, next: string, actionText: string, caseTitle: string) => {
     if (next === 'CFA_ISSUED') {
       const ok = await confirmDialog({
-        title: 'Generate Certification to File Action?',
-        message: `Mediation for "${caseTitle}" will close and the complainant may elevate the case to court. This cannot be undone.`,
-        confirmText: 'Generate CFA',
+        title: t('Generate Certification to File Action?'),
+        message: t('Mediation for "{caseTitle}" will close and the complainant may elevate the case to court. This cannot be undone.', { caseTitle }),
+        confirmText: t('Generate CFA'),
         tone: 'danger',
       });
       if (!ok) return;
     }
     try {
       await advance.mutateAsync({ id, next: next as never });
-      toast(`⚖️ ${actionText.replace(' →', '').replace(' ✓', '')} — ${caseTitle}`);
+      toast(t('⚖️ {action} — {caseTitle}', { action: t(actionText.replace(' →', '').replace(' ✓', '')), caseTitle }));
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Action failed.');
+      toast(err?.response?.data?.message ?? t('Action failed.'));
     }
   };
 
@@ -78,33 +80,38 @@ export function StaffComplaintsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>
-            Katarungang Pambarangay & Dispute Resolution
+            {t('Katarungang Pambarangay & Dispute Resolution')}
           </h2>
           <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 0' }}>
-            {data?.activeCount ?? 0} active case{(data?.activeCount ?? 0) === 1 ? '' : 's'} · 20-day mediation clock per case
+            {t(
+              (data?.activeCount ?? 0) === 1
+                ? '{n} active case · 20-day mediation clock per case'
+                : '{n} active cases · 20-day mediation clock per case',
+              { n: data?.activeCount ?? 0 },
+            )}
           </p>
         </div>
         <button
           onClick={() => setShowBlotter((v) => !v)}
           style={{ background: '#1E3A5F', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer' }}
         >
-          + Encode Police Report (Blotter)
+          {t('+ Encode Police Report (Blotter)')}
         </button>
       </div>
 
       {showBlotter && (
         <div style={{ background: '#F7FAFF', border: '1px solid #DCE7F7', borderRadius: 10, padding: '16px 18px', marginTop: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr 1fr', gap: 12 }}>
-            <div><label style={label}>Case Title</label><input style={input} placeholder="e.g., Turnover of Mendicants" value={blotter.caseTitle} onChange={(e) => setBlotter((b) => ({ ...b, caseTitle: e.target.value }))} /></div>
-            <div><label style={label}>Category</label>
-              <Select value={blotter.category} onChange={(v) => setBlotter((b) => ({ ...b, category: v }))} options={COMPLAINT_CATEGORIES.map((c) => ({ value: c, labelText: c }))} />
+            <div><label style={label}>{t('Case Title')}</label><input style={input} placeholder={t('e.g., Turnover of Mendicants')} value={blotter.caseTitle} onChange={(e) => setBlotter((b) => ({ ...b, caseTitle: e.target.value }))} /></div>
+            <div><label style={label}>{t('Category')}</label>
+              <Select value={blotter.category} onChange={(v) => setBlotter((b) => ({ ...b, category: v }))} options={COMPLAINT_CATEGORIES.map((c) => ({ value: c, labelText: t(c) }))} />
             </div>
-            <div><label style={label}>Respondent / Subject</label><input style={input} placeholder="Name or N/A" value={blotter.respondentName} onChange={(e) => setBlotter((b) => ({ ...b, respondentName: e.target.value }))} /></div>
+            <div><label style={label}>{t('Respondent / Subject')}</label><input style={input} placeholder={t('Name or N/A')} value={blotter.respondentName} onChange={(e) => setBlotter((b) => ({ ...b, respondentName: e.target.value }))} /></div>
           </div>
-          <label style={{ ...label, marginTop: 12 }}>Incident Details</label>
+          <label style={{ ...label, marginTop: 12 }}>{t('Incident Details')}</label>
           <textarea rows={3} style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }} value={blotter.description} onChange={(e) => setBlotter((b) => ({ ...b, description: e.target.value.slice(0, 1000) }))} />
           <button onClick={submitBlotter} style={{ marginTop: 12, background: '#27AE60', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer' }}>
-            {encode.isPending ? 'Saving…' : 'Record Blotter Entry'}
+            {encode.isPending ? t('Saving…') : t('Record Blotter Entry')}
           </button>
         </div>
       )}
@@ -118,26 +125,26 @@ export function StaffComplaintsPage() {
           </colgroup>
           <thead>
             <tr>
-              <th style={th}>CASE DETAILS</th>
-              <th style={th}>FILING TYPE</th>
-              <th style={th}>MEDIATION TIMELINE</th>
-              <th style={th}>LUPON ASSIGNED</th>
-              <th style={th}>STATUS</th>
-              <th style={th}>ACTIONS</th>
+              <th style={th}>{t('CASE DETAILS')}</th>
+              <th style={th}>{t('FILING TYPE')}</th>
+              <th style={th}>{t('MEDIATION TIMELINE')}</th>
+              <th style={th}>{t('LUPON ASSIGNED')}</th>
+              <th style={th}>{t('STATUS')}</th>
+              <th style={th}>{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
             {(data?.items ?? []).length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>No cases on record.</td></tr>
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>{t('No cases on record.')}</td></tr>
             )}
             {(data?.items ?? []).map((c) => {
               const meta = COMPLAINT_STATUS_META[c.status];
               const actions = actionsMap?.[c.status] ?? [];
               const timelineChip = c.mediationDay === null
-                ? { text: 'N/A (Staff Blotter)', kind: 'gray' as const }
+                ? { text: t('N/A (Staff Blotter)'), kind: 'gray' as const }
                 : c.overdue
-                  ? { text: `OVERDUE`, kind: 'red' as const }
-                  : { text: `Day ${c.mediationDay} / ${c.mediationDays}`, kind: c.mediationDay >= 14 ? ('yellow' as const) : ('green' as const) };
+                  ? { text: t('OVERDUE'), kind: 'red' as const }
+                  : { text: t('Day {d} / {total}', { d: c.mediationDay, total: c.mediationDays }), kind: c.mediationDay >= 14 ? ('yellow' as const) : ('green' as const) };
               return (
                 <tr key={c.id} style={c.overdue ? { background: '#FEF5F4', boxShadow: 'inset 3px 0 0 #D64541' } : {}}>
                   <td style={{ ...td, fontWeight: 700 }}>
@@ -148,20 +155,20 @@ export function StaffComplaintsPage() {
                       {c.caseTitle}
                     </button>
                     <div style={{ fontSize: 11.5, fontWeight: 500, color: '#8A97AB', marginTop: 2 }}>
-                      {c.category}
-                      {c.complainantName && ` · by ${c.complainantName}`}
+                      {t(c.category)}
+                      {c.complainantName && ` · ${t('by {name}', { name: c.complainantName })}`}
                       {' · '}
                       <button onClick={() => setDetailId(c.id)} style={{ background: 'none', border: 'none', padding: 0, color: '#2E66D0', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>
-                        View Details →
+                        {t('View Details →')}
                       </button>
                     </div>
                   </td>
                   <td style={td}>
                     {c.source === ComplaintSource.MANUAL_BLOTTER
-                      ? 'Manual Blotter (Staff)'
+                      ? t('Manual Blotter (Staff)')
                       : c.isAnonymous
-                        ? 'Resident Form (Anonymous)'
-                        : 'Resident Form (Named)'}
+                        ? t('Resident Form (Anonymous)')
+                        : t('Resident Form (Named)')}
                   </td>
                   <td style={td}><span style={pill(timelineChip.kind)}>{timelineChip.text}</span></td>
                   <td style={td}>
@@ -169,16 +176,16 @@ export function StaffComplaintsPage() {
                       <Select
                         compact
                         value=""
-                        placeholder="Assign…"
+                        placeholder={t('Assign…')}
                         options={LUPON_MEMBERS.map((m) => ({ value: m, labelText: m }))}
                         onChange={(m) =>
-                          assign.mutateAsync({ id: c.id, luponAssignee: m }).then(() => toast(`👥 ${m} assigned to ${c.caseTitle}`))
+                          assign.mutateAsync({ id: c.id, luponAssignee: m }).then(() => toast(t('👥 {name} assigned to {caseTitle}', { name: m, caseTitle: c.caseTitle })))
                         }
                         style={{ width: 150 }}
                       />
                     )}
                   </td>
-                  <td style={td}><span style={pill(meta.kind)}>{meta.labelText}</span></td>
+                  <td style={td}><span style={pill(meta.kind)}>{t(meta.labelText)}</span></td>
                   <td style={td}>
                     <div style={{ display: 'flex', gap: 12, whiteSpace: 'nowrap' }}>
                       {actions.length === 0 && <span style={{ color: '#9AA6B7', fontSize: 13 }}>—</span>}
@@ -189,7 +196,7 @@ export function StaffComplaintsPage() {
                           disabled={advance.isPending}
                           style={{ background: 'none', border: 'none', color: a.next === 'CFA_ISSUED' ? '#C0392B' : '#2E66D0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
                         >
-                          {a.actionText}
+                          {t(a.actionText)}
                         </button>
                       ))}
                     </div>
@@ -204,46 +211,46 @@ export function StaffComplaintsPage() {
       {detail && (
         <Modal title={detail.caseTitle} onClose={() => setDetailId(null)}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-            <span style={pill(COMPLAINT_STATUS_META[detail.status].kind)}>{COMPLAINT_STATUS_META[detail.status].labelText}</span>
-            <span style={pill('gray')}>{detail.category}</span>
-            {detail.overdue && <span style={pill('red')}>Mediation overdue</span>}
+            <span style={pill(COMPLAINT_STATUS_META[detail.status].kind)}>{t(COMPLAINT_STATUS_META[detail.status].labelText)}</span>
+            <span style={pill('gray')}>{t(detail.category)}</span>
+            {detail.overdue && <span style={pill('red')}>{t('Mediation overdue')}</span>}
           </div>
 
-          <DetailRow labelText="Incident Description">
+          <DetailRow labelText={t('Incident Description')}>
             <div style={{ background: '#F8FAFD', border: '1px solid #EDF0F5', borderRadius: 9, padding: '12px 14px', whiteSpace: 'pre-wrap' }}>
               {detail.description}
             </div>
           </DetailRow>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 18px' }}>
-            <DetailRow labelText="Filing Type">
+            <DetailRow labelText={t('Filing Type')}>
               {detail.source === ComplaintSource.MANUAL_BLOTTER
-                ? 'Manual Blotter (Staff-encoded)'
-                : 'Resident Complaint Form'}
+                ? t('Manual Blotter (Staff-encoded)')
+                : t('Resident Complaint Form')}
             </DetailRow>
-            <DetailRow labelText="Filed">{fmtDateLong(detail.filedAt)}</DetailRow>
-            <DetailRow labelText="Complainant">
+            <DetailRow labelText={t('Filed')}>{fmtDateLong(detail.filedAt)}</DetailRow>
+            <DetailRow labelText={t('Complainant')}>
               {detail.complainantName ?? <span style={{ color: '#9AA6B7' }}>—</span>}
             </DetailRow>
-            <DetailRow labelText="Respondent">{detail.respondentName}</DetailRow>
-            <DetailRow labelText="Contact Number">
+            <DetailRow labelText={t('Respondent')}>{detail.respondentName}</DetailRow>
+            <DetailRow labelText={t('Contact Number')}>
               {detail.contactNumber ?? <span style={{ color: '#9AA6B7' }}>—</span>}
             </DetailRow>
-            <DetailRow labelText="Lupon Assigned">
-              {detail.luponAssignee ?? <span style={{ color: '#9AA6B7' }}>Not yet assigned</span>}
+            <DetailRow labelText={t('Lupon Assigned')}>
+              {detail.luponAssignee ?? <span style={{ color: '#9AA6B7' }}>{t('Not yet assigned')}</span>}
             </DetailRow>
-            <DetailRow labelText="Mediation Timeline">
+            <DetailRow labelText={t('Mediation Timeline')}>
               {detail.mediationDay === null
-                ? 'N/A — no mediation clock'
-                : `Day ${detail.mediationDay} of ${detail.mediationDays}${detail.overdue ? ' (OVERDUE)' : ''}`}
+                ? t('N/A — no mediation clock')
+                : `${t('Day {d} of {total}', { d: detail.mediationDay, total: detail.mediationDays })}${detail.overdue ? ` ${t('(OVERDUE)')}` : ''}`}
             </DetailRow>
-            <DetailRow labelText="Evidence">
+            <DetailRow labelText={t('Evidence')}>
               {detail.hasEvidence && detail.evidenceUrl ? (
                 <a href={detail.evidenceUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
-                  📎 Open attached evidence
+                  {t('📎 Open attached evidence')}
                 </a>
               ) : (
-                <span style={{ color: '#9AA6B7' }}>None attached</span>
+                <span style={{ color: '#9AA6B7' }}>{t('None attached')}</span>
               )}
             </DetailRow>
           </div>
@@ -268,7 +275,7 @@ export function StaffComplaintsPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {a.actionText}
+                    {t(a.actionText)}
                   </button>
                 ))}
               </div>

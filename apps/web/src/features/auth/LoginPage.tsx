@@ -4,7 +4,9 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { login } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, input, label } from '../../components/ui/kit';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { Toasts } from '../../components/ui/Toasts';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { roleHome, useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
@@ -14,6 +16,7 @@ export function LoginPage() {
   const toast = useUiStore((s) => s.toast);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const t = useT();
   // Live public aggregates for the hero — falls back to placeholders while loading.
   const { data: stats } = useQuery({
     queryKey: ['public-stats'],
@@ -35,10 +38,10 @@ export function LoginPage() {
     setBusy(true);
     try {
       const session = await login({ email, password, rememberMe });
-      toast(`👋 Welcome back, ${session.user.fullName.split(' ')[0]}!`);
+      toast(t('👋 Welcome back, {name}!', { name: session.user.fullName.split(' ')[0] }));
       navigate(roleHome(session.user.role));
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Sign-in failed — please try again.');
+      setError(err?.response?.data?.message ?? t('Sign-in failed — please try again.'));
     } finally {
       setBusy(false);
     }
@@ -66,15 +69,15 @@ export function LoginPage() {
         )}
         <div style={{ font: `800 ${isMobile ? 42 : 64}px Poppins, sans-serif`, color: '#F5A81C', lineHeight: 1 }}>591</div>
         <div style={{ fontSize: 12, letterSpacing: '.18em', color: '#93A7C0', fontWeight: 700, marginTop: 10 }}>
-          BARANGAY E-SERVICES PORTAL
+          {t('BARANGAY E-SERVICES PORTAL')}
         </div>
         <h2 style={{ font: `700 ${isMobile ? 20 : 30}px Poppins, sans-serif`, color: '#fff', margin: isMobile ? '14px 0 6px' : '26px 0 10px', maxWidth: 460 }}>
-          Serbisyong mabilis, malinaw, at maaasahan.
+          {t('Serbisyong mabilis, malinaw, at maaasahan.')}
         </h2>
         {!isMobile && (
           <>
             <p style={{ color: '#AFC0D6', fontSize: 15, lineHeight: 1.6, maxWidth: 440 }}>
-              Request documents, file complaints, book facilities, and reach your barangay — online, anytime.
+              {t('Request documents, file complaints, book facilities, and reach your barangay — online, anytime.')}
             </p>
             <div style={{ display: 'flex', gap: 26, marginTop: 34 }}>
               {[
@@ -84,7 +87,7 @@ export function LoginPage() {
               ].map(([v, l]) => (
                 <div key={l}>
                   <div style={{ font: '800 24px Poppins, sans-serif', color: '#F5A81C' }}>{v}</div>
-                  <div style={{ fontSize: 12, color: '#93A7C0', fontWeight: 600 }}>{l}</div>
+                  <div style={{ fontSize: 12, color: '#93A7C0', fontWeight: 600 }}>{t(l)}</div>
                 </div>
               ))}
             </div>
@@ -110,27 +113,26 @@ export function LoginPage() {
         }}
       >
         <div style={{ width: isMobile ? '100%' : 400, maxWidth: 440 }}>
-          <h1 style={{ margin: 0, font: '700 22px Poppins, sans-serif', color: '#1E3A5F' }}>Sign in</h1>
+          <h1 style={{ margin: 0, font: '700 22px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Sign in')}</h1>
           <p style={{ margin: '6px 0 20px', fontSize: 13.5, color: '#64748B' }}>
-            Welcome back — your portal opens based on your account.
+            {t('Welcome back — your portal opens based on your account.')}
           </p>
 
-          <label style={label}>Email or Mobile Number</label>
+          <label style={label}>{t('Email or Mobile Number')}</label>
           <input
             style={{ ...input, marginBottom: 14 }}
-            placeholder="e.g., antonette@gmail.com"
+            placeholder={t('e.g., antonette@gmail.com')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             autoComplete="username"
           />
-          <label style={label}>Password</label>
-          <input
-            style={{ ...input, marginBottom: 14 }}
-            type="password"
+          <label style={label}>{t('Password')}</label>
+          <PasswordInput
+            style={{ marginBottom: 14 }}
             placeholder="••••••••"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             autoComplete="current-password"
           />
@@ -138,21 +140,21 @@ export function LoginPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#33415E', cursor: 'pointer' }}>
               <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
-              Remember me
+              {t('Remember me')}
             </label>
             <Link to="/forgot-password" style={{ fontSize: 13, fontWeight: 600 }}>
-              Forgot password?
+              {t('Forgot password?')}
             </Link>
           </div>
 
           {error && <div style={{ ...errorText, marginBottom: 14 }}>{error}</div>}
 
           <button onClick={submit} style={busy ? btnBusy : btnPrimary}>
-            {busy ? 'Signing in…' : 'Sign In'}
+            {busy ? t('Signing in…') : t('Sign In')}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: 13, color: '#64748B', marginTop: 18, marginBottom: 0 }}>
-            New resident? <Link to="/register" style={{ fontWeight: 700 }}>Create an account</Link>
+            {t('New resident?')} <Link to="/register" style={{ fontWeight: 700 }}>{t('Create an account')}</Link>
           </p>
         </div>
       </div>

@@ -16,6 +16,7 @@ import { card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { FileDropzone } from '../../components/ui/FileDropzone';
 import { DetailRow, Modal } from '../../components/ui/Modal';
 import { REQUEST_ICON, STATUS_PILL, deadlineChip, fmtDate, fmtDateLong } from '../../components/ui/status';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 
@@ -40,6 +41,7 @@ export function EmployeeDashboard() {
   const advance = useAdvanceRequest();
   const toast = useUiStore((s) => s.toast);
   const isMobile = useIsMobile();
+  const t = useT();
 
   const counts = data?.counts ?? { all: 0, doc: 0, health: 0, cctv: 0 };
   const detail: RequestDto | null = (data?.items ?? []).find((r) => r.id === detailId) ?? null;
@@ -60,10 +62,10 @@ export function EmployeeDashboard() {
       value: stats?.openTotal ?? counts.all,
       footText:
         (stats?.dueSoon ?? 0) > 0
-          ? `⚠ ${stats!.dueSoon} due within 24 hrs`
+          ? t('⚠ {n} due within 24 hrs', { n: stats!.dueSoon })
           : (stats?.overdue ?? 0) > 0
-            ? `⚠ ${stats!.overdue} overdue`
-            : '✓ Nothing due within 24 hrs',
+            ? t('⚠ {n} overdue', { n: stats!.overdue })
+            : t('✓ Nothing due within 24 hrs'),
       footStyle: (stats?.dueSoon ?? 0) > 0 ? foot.warn : (stats?.overdue ?? 0) > 0 ? foot.bad : foot.ok,
     },
     {
@@ -72,7 +74,7 @@ export function EmployeeDashboard() {
       value: complaintsQueue?.activeCount ?? 0,
       footText: (() => {
         const overdue = (complaintsQueue?.items ?? []).filter((c) => c.overdue).length;
-        return overdue > 0 ? `⚠ ${overdue} past the 20-day clock` : '✓ All within mediation window';
+        return overdue > 0 ? t('⚠ {n} past the 20-day clock', { n: overdue }) : t('✓ All within mediation window');
       })(),
       footStyle: (complaintsQueue?.items ?? []).some((c) => c.overdue) ? foot.bad : foot.ok,
     },
@@ -82,8 +84,8 @@ export function EmployeeDashboard() {
       value: verifQueue?.pendingCount ?? 0,
       footText:
         (verifQueue?.pendingCount ?? 0) > 0
-          ? `⚠ ${verifQueue!.items.filter((i) => i.status === 'PENDING' && i.ocrVerdict !== 'MATCH' && i.ocrVerdict !== 'PENDING').length} flagged by OCR`
-          : '✓ Queue clear',
+          ? t('⚠ {n} flagged by OCR', { n: verifQueue!.items.filter((i) => i.status === 'PENDING' && i.ocrVerdict !== 'MATCH' && i.ocrVerdict !== 'PENDING').length })
+          : t('✓ Queue clear'),
       footStyle: (verifQueue?.pendingCount ?? 0) > 0 ? foot.warn : foot.ok,
     },
     {
@@ -92,7 +94,7 @@ export function EmployeeDashboard() {
       value: (inventoryItems ?? []).filter((i) => !i.isOpen).length,
       footText: (() => {
         const low = (inventoryItems ?? []).filter((i) => !i.isOpen).map((i) => i.name.split(' ')[0]);
-        return low.length > 0 ? `⚠ ${low.slice(0, 2).join(' · ')}` : '✓ All stock above thresholds';
+        return low.length > 0 ? `⚠ ${low.slice(0, 2).join(' · ')}` : t('✓ All stock above thresholds');
       })(),
       footStyle: (inventoryItems ?? []).some((i) => !i.isOpen) ? foot.bad : foot.ok,
     },
@@ -101,9 +103,9 @@ export function EmployeeDashboard() {
   const onAction = async (id: string) => {
     try {
       const updated = await advance.mutateAsync(id);
-      toast(`✅ ${updated.title} → ${STATUS_PILL[updated.status].labelText}`);
+      toast(t('✅ {title} → {status}', { title: updated.title, status: t(STATUS_PILL[updated.status].labelText) }));
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Action failed — try again.');
+      toast(err?.response?.data?.message ?? t('Action failed — try again.'));
     }
   };
 
@@ -111,14 +113,14 @@ export function EmployeeDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* SOS status banner — live alerts arrive with Phase 7's SOS module. */}
       <div style={{ background: '#E4F5EB', border: '1px solid #BFE6CE', borderRadius: 12, padding: '14px 20px', fontSize: 13.5, fontWeight: 700, color: '#1F8B4C' }}>
-        ✅ No active SOS alerts — all clear.
+        {t('✅ No active SOS alerts — all clear.')}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 14 }}>
         {statCards.map((s) => (
           <div key={s.labelText} style={{ ...card, padding: '18px 20px' }}>
             <div style={{ fontSize: 12.5, color: '#64748B', fontWeight: 700 }}>
-              {s.icon} {s.labelText}
+              {s.icon} {t(s.labelText)}
             </div>
             <div style={{ font: '800 28px Poppins, sans-serif', color: '#1E3A5F', marginTop: 6 }}>{s.value}</div>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 8, ...s.footStyle }}>{s.footText}</div>
@@ -129,17 +131,17 @@ export function EmployeeDashboard() {
       <div style={{ ...card, padding: '18px 26px 18px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
           <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>
-            Requests Queue — ARTA SLA Tracker
+            {t('Requests Queue — ARTA SLA Tracker')}
           </h3>
-          <span style={{ fontSize: 12, color: '#8A97AB' }}>3-day simple · 7-day complex · 20-day technical</span>
+          <span style={{ fontSize: 12, color: '#8A97AB' }}>{t('3-day simple · 7-day complex · 20-day technical')}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', gap: 22, overflowX: 'auto' }}>
-            {TABS.map((t) => (
+            {TABS.map((tb) => (
               <button
-                key={t.id}
+                key={tb.id}
                 onClick={() => {
-                  setTab(t.id);
+                  setTab(tb.id);
                   setPage(1);
                 }}
                 style={{
@@ -150,27 +152,27 @@ export function EmployeeDashboard() {
                   background: 'none',
                   border: 'none',
                   whiteSpace: 'nowrap',
-                  borderBottom: `2.5px solid ${tab === t.id ? '#21409A' : 'transparent'}`,
-                  color: tab === t.id ? '#21409A' : '#64748B',
+                  borderBottom: `2.5px solid ${tab === tb.id ? '#21409A' : 'transparent'}`,
+                  color: tab === tb.id ? '#21409A' : '#64748B',
                 }}
               >
-                {t.labelText} ({counts[t.id]})
+                {t(tb.labelText)} ({counts[tb.id]})
               </button>
             ))}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: '#64748B' }}>
             {!isMobile && (
               <span>
-                <span style={{ color: '#D64541' }}>●</span> Overdue&nbsp;&nbsp;
-                <span style={{ color: '#F5A81C' }}>●</span> Due soon&nbsp;&nbsp;
-                <span style={{ color: '#27AE60' }}>●</span> On track
+                <span style={{ color: '#D64541' }}>●</span> {t('Overdue')}&nbsp;&nbsp;
+                <span style={{ color: '#F5A81C' }}>●</span> {t('Due soon')}&nbsp;&nbsp;
+                <span style={{ color: '#27AE60' }}>●</span> {t('On track')}
               </span>
             )}
             <button
-              onClick={() => downloadQueueCsv().then(() => toast('⬇ Queue exported as CSV'))}
+              onClick={() => downloadQueueCsv().then(() => toast(t('⬇ Queue exported as CSV')))}
               style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
             >
-              Export CSV
+              {t('Export CSV')}
             </button>
           </div>
         </div>
@@ -184,12 +186,12 @@ export function EmployeeDashboard() {
             </colgroup>
             <thead>
               <tr>
-                <th style={th}>REQUEST</th>
-                <th style={th}>RESIDENT</th>
-                <th style={th}>FILED</th>
-                <th style={th}>ARTA DEADLINE</th>
-                <th style={th}>STATUS</th>
-                <th style={th}>ACTION</th>
+                <th style={th}>{t('REQUEST')}</th>
+                <th style={th}>{t('RESIDENT')}</th>
+                <th style={th}>{t('FILED')}</th>
+                <th style={th}>{t('ARTA DEADLINE')}</th>
+                <th style={th}>{t('STATUS')}</th>
+                <th style={th}>{t('ACTION')}</th>
               </tr>
             </thead>
             <tbody>
@@ -207,7 +209,7 @@ export function EmployeeDashboard() {
                     <td style={{ ...td, fontWeight: 700 }}>
                       <button
                         onClick={() => setDetailId(r.id)}
-                        title="View details"
+                        title={t('View details')}
                         style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 700, color: '#21409A', cursor: 'pointer', textAlign: 'left' }}
                       >
                         {r.title}
@@ -217,7 +219,7 @@ export function EmployeeDashboard() {
                           onClick={() => setDetailId(r.id)}
                           style={{ background: 'none', border: 'none', padding: 0, color: '#2E66D0', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}
                         >
-                          View Details →
+                          {t('View Details →')}
                         </button>
                       </div>
                     </td>
@@ -227,7 +229,7 @@ export function EmployeeDashboard() {
                       <span style={pill(chip.kind)}>{chip.text}</span>
                     </td>
                     <td style={td}>
-                      <span style={pill(status.kind)}>{status.labelText}</span>
+                      <span style={pill(status.kind)}>{t(status.labelText)}</span>
                     </td>
                     <td style={td}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -237,22 +239,22 @@ export function EmployeeDashboard() {
                             disabled={advance.isPending}
                             style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            {r.actionText}
+                            {t(r.actionText)}
                           </button>
                         ) : (
                           <span style={{ color: '#9AA6B7', fontSize: 13 }}>—</span>
                         )}
                         {r.hasDocument && (
                           <button
-                            title="Download the generated PDF for printing (seal + signature)"
+                            title={t('Download the generated PDF for printing (seal + signature)')}
                             onClick={() =>
                               fetchPrintUrl(r.id)
                                 .then((url) => window.open(url, '_blank'))
-                                .catch(() => toast('Print download failed — try again.'))
+                                .catch(() => toast(t('Print download failed — try again.')))
                             }
                             style={{ background: 'none', border: 'none', color: '#64748B', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            ⎙ Print
+                            {t('⎙ Print')}
                           </button>
                         )}
                       </div>
@@ -263,7 +265,7 @@ export function EmployeeDashboard() {
               {(data?.items ?? []).length === 0 && (
                 <tr>
                   <td style={{ ...td, color: '#8A97AB' }} colSpan={6}>
-                    Queue is clear — no open requests in this tab. 🎉
+                    {t('Queue is clear — no open requests in this tab. 🎉')}
                   </td>
                 </tr>
               )}
@@ -273,8 +275,8 @@ export function EmployeeDashboard() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, flexWrap: 'wrap', gap: 10 }}>
           <span style={{ fontSize: 12.5, color: '#8A97AB' }}>
-            Showing {data && data.total > 0 ? (page - 1) * 5 + 1 : 0}–{Math.min(page * 5, data?.total ?? 0)} of {data?.total ?? 0} records
-            {overdueOnPage > 0 && ` · ${overdueOnPage} overdue on this page`}
+            {t('Showing {from}–{to} of {total} records', { from: data && data.total > 0 ? (page - 1) * 5 + 1 : 0, to: Math.min(page * 5, data?.total ?? 0), total: data?.total ?? 0 })}
+            {overdueOnPage > 0 && t(' · {n} overdue on this page', { n: overdueOnPage })}
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
@@ -282,7 +284,7 @@ export function EmployeeDashboard() {
               disabled={page <= 1}
               style={{ border: '1px solid #DFE5EE', background: page > 1 ? '#fff' : '#F7F9FC', borderRadius: 7, padding: '6px 11px', font: '700 12px Poppins, sans-serif', cursor: page > 1 ? 'pointer' : 'default', color: page > 1 ? '#33415E' : '#C3CBD8' }}
             >
-              Prev
+              {t('Prev')}
             </button>
             {Array.from({ length: totalPages }, (_, i) => (
               <button
@@ -306,7 +308,7 @@ export function EmployeeDashboard() {
               disabled={page >= totalPages}
               style={{ border: '1px solid #DFE5EE', background: page < totalPages ? '#fff' : '#F7F9FC', borderRadius: 7, padding: '6px 11px', font: '700 12px Poppins, sans-serif', cursor: page < totalPages ? 'pointer' : 'default', color: page < totalPages ? '#33415E' : '#C3CBD8' }}
             >
-              Next
+              {t('Next')}
             </button>
           </div>
         </div>
@@ -315,47 +317,47 @@ export function EmployeeDashboard() {
       {detail && (
         <Modal title={`${REQUEST_ICON[detail.type] ?? '📄'} ${detail.title}`} onClose={() => setDetailId(null)}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-            <span style={pill(STATUS_PILL[detail.status].kind)}>{STATUS_PILL[detail.status].labelText}</span>
+            <span style={pill(STATUS_PILL[detail.status].kind)}>{t(STATUS_PILL[detail.status].labelText)}</span>
             <span style={pill(deadlineChip(detail).kind)}>{deadlineChip(detail).text}</span>
-            {detail.pickup && <span style={pill('orange')}>🏛 Pickup at Hall</span>}
+            {detail.pickup && <span style={pill('orange')}>{t('🏛 Pickup at Hall')}</span>}
           </div>
 
-          <DetailRow labelText="Purpose / Details">
+          <DetailRow labelText={t('Purpose / Details')}>
             <div style={{ background: '#F8FAFD', border: '1px solid #EDF0F5', borderRadius: 9, padding: '12px 14px', whiteSpace: 'pre-wrap' }}>
               {detail.purpose ?? '—'}
             </div>
           </DetailRow>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 18px' }}>
-            <DetailRow labelText="Resident">{detail.residentName ?? '—'}</DetailRow>
-            <DetailRow labelText="Request Type">{detail.subtype.replaceAll('_', ' ')}</DetailRow>
-            <DetailRow labelText="Filed">{fmtDateLong(detail.filedAt)}</DetailRow>
-            <DetailRow labelText="ARTA Deadline">
-              {fmtDateLong(detail.dueAt)} · {SLA_META[detail.slaClass].labelText}
+            <DetailRow labelText={t('Resident')}>{detail.residentName ?? '—'}</DetailRow>
+            <DetailRow labelText={t('Request Type')}>{detail.subtype.replaceAll('_', ' ')}</DetailRow>
+            <DetailRow labelText={t('Filed')}>{fmtDateLong(detail.filedAt)}</DetailRow>
+            <DetailRow labelText={t('ARTA Deadline')}>
+              {fmtDateLong(detail.dueAt)} · {t(SLA_META[detail.slaClass].labelText)}
             </DetailRow>
-            <DetailRow labelText="Completed">
-              {detail.completedAt ? fmtDateLong(detail.completedAt) : <span style={{ color: '#9AA6B7' }}>Not yet</span>}
+            <DetailRow labelText={t('Completed')}>
+              {detail.completedAt ? fmtDateLong(detail.completedAt) : <span style={{ color: '#9AA6B7' }}>{t('Not yet')}</span>}
             </DetailRow>
             <DetailRow
-              labelText={detail.pickup ? 'Print Copy' : detail.awaitingSignedUpload ? 'Signing Draft' : 'Issued Document'}
+              labelText={detail.pickup ? t('Print Copy') : detail.awaitingSignedUpload ? t('Signing Draft') : t('Issued Document')}
             >
               {detail.hasDocument ? (
                 <button
                   onClick={() =>
                     fetchPrintUrl(detail.id)
                       .then((url) => window.open(url, '_blank'))
-                      .catch(() => toast('Print download failed — try again.'))
+                      .catch(() => toast(t('Print download failed — try again.')))
                   }
                   style={{ background: 'none', border: 'none', padding: 0, color: '#2E66D0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
                 >
                   {detail.pickup
-                    ? '⎙ Print for signing & release'
+                    ? t('⎙ Print for signing & release')
                     : detail.awaitingSignedUpload
-                      ? '⎙ Print draft for signing'
-                      : '📄 Open signed copy'}
+                      ? t('⎙ Print draft for signing')
+                      : t('📄 Open signed copy')}
                 </button>
               ) : (
-                <span style={{ color: '#9AA6B7' }}>Generated at Review</span>
+                <span style={{ color: '#9AA6B7' }}>{t('Generated at Review')}</span>
               )}
             </DetailRow>
           </div>
@@ -365,14 +367,13 @@ export function EmployeeDashboard() {
             detail.awaitingSignedUpload ? (
               <div style={{ background: '#FFF7DE', border: '1px solid #F2DFA4', borderRadius: 10, padding: '14px 16px', marginBottom: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#7A611B', marginBottom: 8 }}>
-                  ✍️ Upload the signed & sealed copy — this is what gets emailed to the resident.
-                  Completion is locked until it's attached.
+                  {t("✍️ Upload the signed & sealed copy — this is what gets emailed to the resident. Completion is locked until it's attached.")}
                 </div>
                 <FileDropzone
                   file={signedFile}
                   onFile={setSignedFile}
                   accept="application/pdf,image/jpeg,image/png"
-                  hint="PDF or JPG/PNG scan · max 10 MB"
+                  hint={t('PDF or JPG/PNG scan · max 10 MB')}
                   style={{ marginBottom: 10 }}
                 />
                 <button
@@ -382,9 +383,9 @@ export function EmployeeDashboard() {
                       .mutateAsync({ id: detail.id, file: signedFile })
                       .then(() => {
                         setSignedFile(null);
-                        toast('✅ Signed copy attached — you can now mark the request processed.');
+                        toast(t('✅ Signed copy attached — you can now mark the request processed.'));
                       })
-                      .catch((err: any) => toast(err?.response?.data?.message ?? 'Upload failed.'))
+                      .catch((err: any) => toast(err?.response?.data?.message ?? t('Upload failed.')))
                   }
                   disabled={!signedFile || uploadSigned.isPending}
                   style={{
@@ -397,12 +398,12 @@ export function EmployeeDashboard() {
                     cursor: signedFile ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  {uploadSigned.isPending ? 'Uploading…' : '📤 Attach Signed Copy'}
+                  {uploadSigned.isPending ? t('Uploading…') : t('📤 Attach Signed Copy')}
                 </button>
               </div>
             ) : (
               <div style={{ background: '#E4F5EB', border: '1px solid #BFE6CE', borderRadius: 10, padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#1F8B4C', marginBottom: 6 }}>
-                ✅ Signed & sealed copy on file — this is what the resident receives.
+                {t('✅ Signed & sealed copy on file — this is what the resident receives.')}
               </div>
             )
           )}
@@ -414,7 +415,7 @@ export function EmployeeDashboard() {
                 disabled={advance.isPending}
                 style={{ background: '#1E3A5F', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer' }}
               >
-                {detail.actionText}
+                {t(detail.actionText)}
               </button>
             </div>
           )}

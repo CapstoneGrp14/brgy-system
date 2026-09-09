@@ -107,6 +107,22 @@ export class SosService {
     return Promise.all(list.map((a) => this.toView(a)));
   }
 
+  /**
+   * Historical incident points (active + resolved) for the staff/admin SOS
+   * hotspot heat layer. Recurring trouble areas surface as overlapping points.
+   */
+  async hotspot(): Promise<Array<{ lat: number; lng: number; status: 'ACTIVE' | 'RESOLVED'; createdAt: string }>> {
+    const list = await this.alerts.find({ order: { createdAt: 'DESC' }, take: 500 });
+    return list
+      .filter((a) => a.lat !== null && a.lng !== null)
+      .map((a) => ({
+        lat: Number(a.lat),
+        lng: Number(a.lng),
+        status: a.status,
+        createdAt: a.createdAt.toISOString(),
+      }));
+  }
+
   /** Staff resolve or the resident's own cancel. */
   async resolve(id: string, by: { label: string; actorId?: string }, opts?: { onlyOwner?: string }): Promise<SosAlertView> {
     const alert = await this.alerts.findOne({ where: { id } });

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
+import { useT } from '../../i18n';
 
 interface ConfirmOptions {
   title: string;
@@ -46,6 +47,7 @@ const TONE_STYLES = {
 /** Mounted once in the app shell; renders the active confirm dialog. */
 export function ConfirmDialogHost() {
   const { open, options, settle } = useConfirmStore();
+  const t = useT();
 
   useEffect(() => {
     if (!open) return;
@@ -106,7 +108,7 @@ export function ConfirmDialogHost() {
               cursor: 'pointer',
             }}
           >
-            {options.cancelText ?? 'Cancel'}
+            {options.cancelText ?? t('Cancel')}
           </button>
           <button
             autoFocus
@@ -120,7 +122,7 @@ export function ConfirmDialogHost() {
               cursor: 'pointer',
             }}
           >
-            {options.confirmText ?? 'Confirm'}
+            {options.confirmText ?? t('Confirm')}
           </button>
         </div>
       </div>

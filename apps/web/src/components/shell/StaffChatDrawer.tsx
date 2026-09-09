@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChatHistory, useSendChat } from '../../api/realtime';
+import { useT } from '../../i18n';
 import { useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
 
@@ -13,6 +14,7 @@ export function StaffChatDrawer() {
   const send = useSendChat();
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,7 +35,7 @@ export function StaffChatDrawer() {
     <>
       <button
         onClick={toggle}
-        title="Staff Chat"
+        title={t('Staff Chat')}
         style={{
           position: 'fixed',
           right: 18,
@@ -77,13 +79,13 @@ export function StaffChatDrawer() {
           }}
         >
           <div style={{ background: '#1E3A5F', color: '#fff', padding: '12px 16px', font: '700 14px Poppins, sans-serif' }}>
-            💬 Staff Chat
-            <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>Internal channel — employees & admin</div>
+            {t('💬 Staff Chat')}
+            <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>{t('Internal channel — employees & admin')}</div>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: '#F7F9FC' }}>
             {(messages ?? []).length === 0 && (
               <div style={{ fontSize: 12.5, color: '#8A97AB', textAlign: 'center', marginTop: 20 }}>
-                No messages yet — say hi to the team 👋
+                {t('No messages yet — say hi to the team 👋')}
               </div>
             )}
             {(messages ?? []).map((m) => {
@@ -121,7 +123,7 @@ export function StaffChatDrawer() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void submit()}
-              placeholder="Message the team…"
+              placeholder={t('Message the team…')}
               style={{ flex: 1, border: '1.5px solid #DCE3EE', borderRadius: 9, padding: '10px 12px', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
             />
             <button

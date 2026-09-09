@@ -23,6 +23,7 @@ import {
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { btnPrimary, card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 
@@ -55,6 +56,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 /** Admin Dashboard Overview & Analytics (FR-12.1/12.2/12.3). */
 export function AdminOverviewPage() {
   const isMobile = useIsMobile();
+  const t = useT();
   const toast = useUiStore((s) => s.toast);
   const [month, setMonth] = useState<string | undefined>(undefined);
   const { data: o } = useOverview(month);
@@ -67,13 +69,13 @@ export function AdminOverviewPage() {
     try {
       setSummary(await fetchSummaryDraft(o?.month));
     } catch {
-      toast('Could not draft the summary — try again.');
+      toast(t('Could not draft the summary — try again.'));
     } finally {
       setSummaryBusy(false);
     }
   };
 
-  if (!o) return <div style={{ color: '#8A97AB', fontSize: 13.5 }}>Loading analytics…</div>;
+  if (!o) return <div style={{ color: '#8A97AB', fontSize: 13.5 }}>{t('Loading analytics…')}</div>;
 
   const complianceLabel: Record<string, string> = {
     SIMPLE_3: SLA_META.SIMPLE_3?.labelText ?? 'Simple — 3 days',
@@ -85,7 +87,7 @@ export function AdminOverviewPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12.5, color: '#7E8CA3', fontWeight: 700 }}>MONTH</span>
+          <span style={{ fontSize: 12.5, color: '#7E8CA3', fontWeight: 700 }}>{t('MONTH')}</span>
           <Select
             value={o.month}
             onChange={(v) => setMonth(v)}
@@ -98,34 +100,34 @@ export function AdminOverviewPage() {
             onClick={openSummary}
             style={{ background: '#fff', border: '2px solid #1E3A5F', color: '#1E3A5F', borderRadius: 9, padding: '9px 16px', font: '700 12.5px Poppins, sans-serif', cursor: 'pointer' }}
           >
-            {summaryBusy ? 'Drafting…' : '✨ AI Summary Draft'}
+            {summaryBusy ? t('Drafting…') : t('✨ AI Summary Draft')}
           </button>
           <button onClick={() => void downloadMonthlyReportCsv(o.month)} style={{ ...btnPrimary, width: 'auto', padding: '9px 16px', fontSize: 12.5 }}>
-            ⬇ Export Report (CSV)
+            {t('⬇ Export Report (CSV)')}
           </button>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <StatCard icon="👥" labelText="Registered Residents" value={String(o.cards.residents)} sub="active accounts" />
-        <StatCard icon="📄" labelText="Documents Issued" value={String(o.cards.documentsIssued)} sub={monthLabel(o.month)} />
-        <StatCard icon="⚖️" labelText="Complaints Filed" value={String(o.cards.complaintsFiled)} sub={monthLabel(o.month)} />
+        <StatCard icon="👥" labelText={t('Registered Residents')} value={String(o.cards.residents)} sub={t('active accounts')} />
+        <StatCard icon="📄" labelText={t('Documents Issued')} value={String(o.cards.documentsIssued)} sub={monthLabel(o.month)} />
+        <StatCard icon="⚖️" labelText={t('Complaints Filed')} value={String(o.cards.complaintsFiled)} sub={monthLabel(o.month)} />
         <StatCard
           icon="⏱️"
-          labelText="ARTA Compliance"
+          labelText={t('ARTA Compliance')}
           value={o.cards.artaCompliance === null ? '—' : `${o.cards.artaCompliance}%`}
-          sub="on-time completions"
+          sub={t('on-time completions')}
         />
         <StatCard
           icon="🤖"
-          labelText="Chatbot Queries"
+          labelText={t('Chatbot Queries')}
           value={String(o.cards.chatbotQueries)}
-          sub={`${o.cards.chatbotResolvedRate}% self-served`}
+          sub={t('{n}% self-served', { n: o.cards.chatbotResolvedRate })}
         />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 18 }}>
-        <ChartCard title="⚖️ Complaint Trend — Filed vs Resolved (6 months)">
+        <ChartCard title={t('⚖️ Complaint Trend — Filed vs Resolved (6 months)')}>
           <ResponsiveContainer>
             <LineChart data={o.complaintTrend} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#EDF0F5" />
@@ -133,13 +135,13 @@ export function AdminOverviewPage() {
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="filed" name="Filed" stroke="#D64541" strokeWidth={2.5} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#27AE60" strokeWidth={2.5} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="filed" name={t('Filed')} stroke="#D64541" strokeWidth={2.5} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="resolved" name={t('Resolved')} stroke="#27AE60" strokeWidth={2.5} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="🍩 Complaints by Category">
+        <ChartCard title={t('🍩 Complaints by Category')}>
           <ResponsiveContainer>
             <PieChart>
               <Pie
@@ -160,32 +162,32 @@ export function AdminOverviewPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="📅 Booking Busy Days (confirmed)">
+        <ChartCard title={t('📅 Booking Busy Days (confirmed)')}>
           <ResponsiveContainer>
             <BarChart data={o.bookingBusyDays} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#EDF0F5" />
               <XAxis dataKey="day" tick={{ fontSize: 11 }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="count" name="Bookings" fill="#2E66D0" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="count" name={t('Bookings')} fill="#2E66D0" radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="🆓 Free-Service Demand (all time)">
+        <ChartCard title={t('🆓 Free-Service Demand (all time)')}>
           <ResponsiveContainer>
             <BarChart data={o.serviceDemand} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#EDF0F5" />
               <XAxis dataKey="service" tick={{ fontSize: 10.5 }} interval={0} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="count" name="Requests" fill="#F4A62A" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="count" name={t('Requests')} fill="#F4A62A" radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      <ChartCard title="📦 Inventory Levels vs Auto-Close Threshold">
+      <ChartCard title={t('📦 Inventory Levels vs Auto-Close Threshold')}>
         <ResponsiveContainer>
           <BarChart data={o.inventoryLevels} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EDF0F5" />
@@ -193,15 +195,15 @@ export function AdminOverviewPage() {
             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="stockQty" name="Stock" fill="#27AE60" radius={[5, 5, 0, 0]} />
-            <Bar dataKey="threshold" name="Threshold" fill="#D64541" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="stockQty" name={t('Stock')} fill="#27AE60" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="threshold" name={t('Threshold')} fill="#D64541" radius={[5, 5, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
       <div style={{ ...card, padding: '20px 24px' }}>
         <h3 style={{ margin: '0 0 12px', font: '700 14px Poppins, sans-serif', color: '#1E3A5F' }}>
-          ⏱️ ARTA 3-7-20 Compliance (all time)
+          {t('⏱️ ARTA 3-7-20 Compliance (all time)')}
         </h3>
         <div style={{ overflowX: 'auto' }}>
           <table style={tableFixed(680)}>
@@ -212,27 +214,27 @@ export function AdminOverviewPage() {
             </colgroup>
             <thead>
               <tr>
-                <th style={th}>SERVICE CLASS</th>
-                <th style={th}>FILED</th>
-                <th style={th}>COMPLETED</th>
-                <th style={th}>ON TIME</th>
-                <th style={th}>RATE</th>
-                <th style={th}>STATUS</th>
+                <th style={th}>{t('SERVICE CLASS')}</th>
+                <th style={th}>{t('FILED')}</th>
+                <th style={th}>{t('COMPLETED')}</th>
+                <th style={th}>{t('ON TIME')}</th>
+                <th style={th}>{t('RATE')}</th>
+                <th style={th}>{t('STATUS')}</th>
               </tr>
             </thead>
             <tbody>
               {o.compliance.map((c) => (
                 <tr key={c.slaClass}>
-                  <td style={{ ...td, fontWeight: 700 }}>{complianceLabel[c.slaClass] ?? c.slaClass}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{t(complianceLabel[c.slaClass] ?? c.slaClass)}</td>
                   <td style={td}>{c.filed}</td>
                   <td style={td}>{c.completed}</td>
                   <td style={td}>{c.onTime}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{c.rate === null ? '—' : `${c.rate}%`}</td>
                   <td style={td}>
-                    {c.status === 'Compliant' && <span style={pill('green')}>Compliant</span>}
-                    {c.status === 'At Risk' && <span style={pill('yellow')}>At Risk</span>}
-                    {c.status === 'Non-Compliant' && <span style={pill('red')}>Non-Compliant</span>}
-                    {c.status === '—' && <span style={pill('gray')}>No data</span>}
+                    {c.status === 'Compliant' && <span style={pill('green')}>{t('Compliant')}</span>}
+                    {c.status === 'At Risk' && <span style={pill('yellow')}>{t('At Risk')}</span>}
+                    {c.status === 'Non-Compliant' && <span style={pill('red')}>{t('Non-Compliant')}</span>}
+                    {c.status === '—' && <span style={pill('gray')}>{t('No data')}</span>}
                   </td>
                 </tr>
               ))}
@@ -242,20 +244,20 @@ export function AdminOverviewPage() {
       </div>
 
       {summary !== null && (
-        <Modal title="✨ AI Summary Draft" onClose={() => setSummary(null)} width={620}>
+        <Modal title={t('✨ AI Summary Draft')} onClose={() => setSummary(null)} width={620}>
           <p style={{ fontSize: 13.5, color: '#2E3A52', lineHeight: 1.7, margin: '0 0 14px', whiteSpace: 'pre-line' }}>{summary}</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11.5, color: '#8A97AB' }}>
-              Drafted from live portal statistics — review before publishing.
+              {t('Drafted from live portal statistics — review before publishing.')}
             </span>
             <button
               onClick={() => {
                 void navigator.clipboard.writeText(summary);
-                toast('📋 Summary copied to clipboard.');
+                toast(t('📋 Summary copied to clipboard.'));
               }}
               style={{ ...btnPrimary, width: 'auto', padding: '9px 16px', fontSize: 12.5 }}
             >
-              Copy to Clipboard
+              {t('Copy to Clipboard')}
             </button>
           </div>
         </Modal>

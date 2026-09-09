@@ -2,6 +2,7 @@ import { Role } from '@brgy/shared';
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useActiveSos } from '../../api/realtime';
 import { pageIcon, pageTitle } from '../../app/nav';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { roleHome, useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
@@ -16,6 +17,7 @@ import { StaffChatDrawer } from './StaffChatDrawer';
 function SosAlertBanner({ portal }: { portal: Role }) {
   const { data: alerts } = useActiveSos();
   const location = useLocation();
+  const t = useT();
   if (!alerts?.length) return null;
   const mapPath = portal === Role.ADMIN ? '/admin/sos-map' : '/employee/sos-map';
   const onMap = location.pathname === mapPath;
@@ -24,13 +26,13 @@ function SosAlertBanner({ portal }: { portal: Role }) {
     <div style={{ background: '#D64541', color: '#fff', padding: '9px 18px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13, fontWeight: 600 }}>
       <span style={{ animation: 'sosBlink 1.2s step-end infinite' }}>🆘</span>
       <span>
-        ACTIVE SOS — {first.residentName}
+        {t('ACTIVE SOS')} — {first.residentName}
         {first.address ? ` (${first.address})` : ''}
-        {alerts.length > 1 ? ` +${alerts.length - 1} more` : ''}
+        {alerts.length > 1 ? t(' +{n} more', { n: alerts.length - 1 }) : ''}
       </span>
       {!onMap && (
         <Link to={mapPath} style={{ color: '#fff', textDecoration: 'underline', fontWeight: 800, marginLeft: 'auto' }}>
-          View SOS Map →
+          {t('View SOS Map →')}
         </Link>
       )}
       <style>{`@keyframes sosBlink { 50% { opacity: .25; } }`}</style>
@@ -46,11 +48,12 @@ export function PortalLayout({ role }: { role: Role }) {
   const closeMobileNav = useUiStore((s) => s.closeMobileNav);
   const isMobile = useIsMobile();
   const location = useLocation();
+  const t = useT();
 
   if (status === 'unknown') {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: '#64748B' }}>
-        Loading session…
+        {t('Loading session…')}
       </div>
     );
   }

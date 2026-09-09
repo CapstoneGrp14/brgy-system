@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { FileDropzone } from '../../components/ui/FileDropzone';
 import { btnBusy, btnPrimary, card, cols, tableFixed, td, th } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
 interface KbFile {
@@ -19,6 +20,7 @@ const fmtStamp = (iso: string) =>
 
 /** Admin: grounding knowledge for the 591 Assistant — .md files stored in MinIO. */
 export function AssistantKnowledgePage() {
+  const t = useT();
   const toast = useUiStore((s) => s.toast);
   const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
@@ -46,44 +48,47 @@ export function AssistantKnowledgePage() {
     if (!file || upload.isPending) return;
     try {
       await upload.mutateAsync(file);
-      toast(`🤖 ${file.name} added — the assistant now answers from it.`);
+      toast(t('🤖 {name} added — the assistant now answers from it.', { name: file.name }));
       setFile(null);
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Upload failed — .md or .txt only, max 200 KB.');
+      toast(err?.response?.data?.message ?? t('Upload failed — .md or .txt only, max 200 KB.'));
     }
   };
 
   const doDelete = async (name: string) => {
     const ok = await confirmDialog({
-      title: 'Remove Knowledge File',
-      message: `Remove "${name}"? The assistant stops using it immediately${(files?.length ?? 0) <= 1 ? ' and falls back to the built-in service guide' : ''}.`,
-      confirmText: 'Remove',
+      title: t('Remove Knowledge File'),
+      message:
+        (files?.length ?? 0) <= 1
+          ? t('Remove "{name}"? The assistant stops using it immediately and falls back to the built-in service guide.', { name })
+          : t('Remove "{name}"? The assistant stops using it immediately.', { name }),
+      confirmText: t('Remove'),
       tone: 'danger',
     });
     if (!ok) return;
     try {
       await remove.mutateAsync(name);
-      toast(`🗑️ ${name} removed.`);
+      toast(t('🗑️ {name} removed.', { name }));
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Could not remove the file.');
+      toast(err?.response?.data?.message ?? t('Could not remove the file.'));
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 860 }}>
       <div style={{ ...card, padding: '24px 26px' }}>
-        <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>🤖 Assistant Knowledge</h2>
+        <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{t('🤖 Assistant Knowledge')}</h2>
         <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 16px', lineHeight: 1.6 }}>
-          The 591 Assistant answers <strong>only</strong> from these Markdown files (plus the live Citizen's
-          Charter). Upload service guides, FAQs, schedules — anything public residents may ask about.
-          Changes apply within a minute, no restart needed. If no files are uploaded, the built-in service
-          guide is used. <strong>Never include resident data</strong> — everything here can be quoted to any resident.
+          {t('The 591 Assistant answers')} <strong>{t('only')}</strong>{' '}
+          {t("from these Markdown files (plus the live Citizen's Charter). Upload service guides, FAQs, schedules — anything public residents may ask about. Changes apply within a minute, no restart needed. If no files are uploaded, the built-in service guide is used.")}{' '}
+          <strong>{t('Never include resident data')}</strong>{' '}
+          {t('— everything here can be quoted to any resident.')}
         </p>
         <FileDropzone
           file={file}
           onFile={setFile}
           accept=".md,.markdown,.txt,text/markdown,text/plain"
-          hint="Markdown (.md) or text (.txt) · max 200 KB per file"
+          hint={t('Markdown (.md) or text (.txt) · max 200 KB per file')}
         />
         <button
           onClick={doUpload}
@@ -94,13 +99,13 @@ export function AssistantKnowledgePage() {
               : { ...btnPrimary, width: 'auto', padding: '10px 20px', marginTop: 12, ...(file ? {} : { background: '#DFE5EE', color: '#9AA6B7', cursor: 'not-allowed' }) }
           }
         >
-          {upload.isPending ? 'Uploading…' : '⬆ Add to Knowledge Base'}
+          {upload.isPending ? t('Uploading…') : t('⬆ Add to Knowledge Base')}
         </button>
       </div>
 
       <div style={{ ...card, padding: '22px 26px' }}>
         <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>
-          Knowledge Files {files && files.length > 0 && `(${files.length})`}
+          {t('Knowledge Files')} {files && files.length > 0 && `(${files.length})`}
         </h3>
         <div style={{ overflowX: 'auto' }}>
           <table style={tableFixed(560)}>
@@ -111,17 +116,17 @@ export function AssistantKnowledgePage() {
             </colgroup>
             <thead>
               <tr>
-                <th style={th}>FILE</th>
-                <th style={th}>SIZE</th>
-                <th style={th}>UPDATED</th>
-                <th style={th}>ACTIONS</th>
+                <th style={th}>{t('FILE')}</th>
+                <th style={th}>{t('SIZE')}</th>
+                <th style={th}>{t('UPDATED')}</th>
+                <th style={th}>{t('ACTIONS')}</th>
               </tr>
             </thead>
             <tbody>
               {(files ?? []).length === 0 && (
                 <tr>
                   <td style={{ ...td, color: '#8A97AB' }} colSpan={4}>
-                    No files yet — the assistant is using the built-in service guide.
+                    {t('No files yet — the assistant is using the built-in service guide.')}
                   </td>
                 </tr>
               )}
@@ -133,10 +138,10 @@ export function AssistantKnowledgePage() {
                   <td style={td}>
                     <div style={{ display: 'flex', gap: 14 }}>
                       <a href={f.url} target="_blank" rel="noreferrer" style={{ color: '#2E66D0', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
-                        View
+                        {t('View')}
                       </a>
                       <button onClick={() => doDelete(f.name)} style={{ background: 'none', border: 'none', color: '#C0392B', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>
-                        Remove
+                        {t('Remove')}
                       </button>
                     </div>
                   </td>

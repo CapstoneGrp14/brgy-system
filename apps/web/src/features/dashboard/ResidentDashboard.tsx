@@ -7,6 +7,7 @@ import { useMyRequests } from '../../api/requests';
 import { Modal } from '../../components/ui/Modal';
 import { card, pill } from '../../components/ui/kit';
 import { REQUEST_ICON, STATUS_PILL, deadlineChip, fmtDateLong } from '../../components/ui/status';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
@@ -36,11 +37,13 @@ export function ResidentDashboard() {
   const toast = useUiStore((s) => s.toast);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const t = useT();
   const { data: requests } = useMyRequests();
   const { data: bookings } = useMyBookings();
   const { data: announcementFeed } = useAnnouncements();
   const bannerPost = (announcementFeed?.items ?? []).find((a) => a.channelBanner || a.urgent);
   const [posterOpen, setPosterOpen] = useState(false);
+  const [allReqOpen, setAllReqOpen] = useState(false);
 
   const active = (requests ?? []).filter((r) => ACTIVE.includes(r.status)).slice(0, 3);
   const recent = (requests ?? []).slice(0, 4);
@@ -53,16 +56,16 @@ export function ResidentDashboard() {
       {/* One-tap SOS banner */}
       <div style={{ background: '#C0392B', borderRadius: 12, padding: isMobile ? '18px 18px' : '20px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ color: '#fff', font: '700 16px Poppins, sans-serif' }}>🆘 One-Tap Emergency Alert</div>
+          <div style={{ color: '#fff', font: '700 16px Poppins, sans-serif' }}>{t('🆘 One-Tap Emergency Alert')}</div>
           <div style={{ color: 'rgba(255,255,255,.85)', fontSize: 13, marginTop: 4 }}>
-            Sends your exact location to the nearest barangay officer immediately.
+            {t('Sends your exact location to the nearest barangay officer immediately.')}
           </div>
         </div>
         <button
           onClick={() => navigate('/resident/sos')}
           style={{ background: '#fff', color: '#C0392B', border: 'none', borderRadius: 9, padding: '11px 20px', font: '700 14px Poppins, sans-serif', cursor: 'pointer' }}
         >
-          📍 Send SOS Now
+          {t('📍 Send SOS Now')}
         </button>
       </div>
 
@@ -90,13 +93,13 @@ export function ResidentDashboard() {
             />
           )}
           <div style={{ fontSize: 13.5, color: bannerPost.urgent ? '#C0392B' : '#1E3A5F', minWidth: 0, flex: 1 }}>
-            <strong>{bannerPost.urgent ? '🚨 URGENT: ' : '📢 '}{bannerPost.title}</strong>
+            <strong>{bannerPost.urgent ? t('🚨 URGENT: ') : '📢 '}{bannerPost.title}</strong>
             <span style={{ color: bannerPost.urgent ? '#B06060' : '#64748B' }}>
               {' '}· {fmtDateLong(bannerPost.createdAt)}
             </span>
           </div>
           <span style={{ font: '700 12.5px Poppins, sans-serif', color: bannerPost.urgent ? '#C0392B' : '#2E66D0', whiteSpace: 'nowrap' }}>
-            {bannerPost.photoUrl ? '🖼️ View poster' : 'Read more →'}
+            {bannerPost.photoUrl ? t('🖼️ View poster') : t('Read more →')}
           </span>
         </div>
       )}
@@ -116,10 +119,10 @@ export function ResidentDashboard() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#8A97AB' }}>
-              Posted {fmtDateLong(bannerPost.createdAt)} · {bannerPost.authorLabel}
+              {t('Posted {date} · {author}', { date: fmtDateLong(bannerPost.createdAt), author: bannerPost.authorLabel })}
             </span>
             <Link to="/resident/announcements" style={{ font: '700 12.5px Poppins, sans-serif', color: '#2E66D0', textDecoration: 'none' }}>
-              All announcements →
+              {t('All announcements →')}
             </Link>
           </div>
         </Modal>
@@ -130,14 +133,14 @@ export function ResidentDashboard() {
         <div style={{ background: '#FFF7DE', border: '2px solid #F5A81C', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 13.5, color: '#7A611B' }}>
             <span style={{ display: 'inline-block', animation: 'pulse 1.6s ease infinite', marginRight: 6 }}>⚠️</span>
-            <strong>Verification needed.</strong> Barangay services are locked until staff verifies
-            your identity — upload a valid ID or supporting document to unlock them.
+            <strong>{t('Verification needed.')}</strong>{' '}
+            {t('Barangay services are locked until staff verifies your identity — upload a valid ID or supporting document to unlock them.')}
           </div>
           <button
             onClick={() => navigate('/resident/upload')}
             style={{ background: '#F5A81C', color: '#16324F', border: 'none', borderRadius: 9, padding: '10px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
-            📎 Upload Documents →
+            {t('📎 Upload Documents →')}
           </button>
         </div>
       )}
@@ -146,13 +149,13 @@ export function ResidentDashboard() {
       <div style={{ ...card, padding: '22px 26px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
           <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>
-            ⏱ ARTA SLA Tracker — My Active Requests
+            {t('⏱ ARTA SLA Tracker — My Active Requests')}
           </h3>
-          <span style={{ fontSize: 12, color: '#8A97AB' }}>3-day simple · 7-day complex · 20-day technical</span>
+          <span style={{ fontSize: 12, color: '#8A97AB' }}>{t('3-day simple · 7-day complex · 20-day technical')}</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginTop: 16 }}>
           {active.length === 0 && (
-            <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>No active requests — file one from Quick Actions below.</p>
+            <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>{t('No active requests — file one from Quick Actions below.')}</p>
           )}
           {active.map((r) => {
             const chip = deadlineChip(r);
@@ -161,14 +164,14 @@ export function ResidentDashboard() {
             return (
               <div key={r.id} style={{ border: '1px solid #E9EDF4', borderRadius: 10, padding: '15px 16px' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#2E3A52' }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: '#8A97AB', margin: '3px 0 10px' }}>{SLA_META[r.slaClass].labelText}</div>
+                <div style={{ fontSize: 12, color: '#8A97AB', margin: '3px 0 10px' }}>{t(SLA_META[r.slaClass].labelText)}</div>
                 <div style={{ height: 6, borderRadius: 999, background: '#EDF1F7' }}>
                   <div style={{ height: 6, borderRadius: 999, width: `${r.overdueDays > 0 ? 100 : pct}%`, background: barColor }} />
                 </div>
                 <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 9, color: chip.kind === 'red' ? '#C0392B' : chip.kind === 'yellow' ? '#C96A11' : '#1F8B4C' }}>
                   {r.overdueDays > 0
-                    ? `⚠ Overdue by ${r.overdueDays} day${r.overdueDays > 1 ? 's' : ''}`
-                    : `${chip.text} — ${chip.kind === 'yellow' ? '⚠ Approaching deadline' : '✓ On track'}`}
+                    ? t(r.overdueDays > 1 ? '⚠ Overdue by {n} days' : '⚠ Overdue by {n} day', { n: r.overdueDays })
+                    : `${chip.text} — ${chip.kind === 'yellow' ? t('⚠ Approaching deadline') : t('✓ On track')}`}
                 </div>
               </div>
             );
@@ -178,7 +181,7 @@ export function ResidentDashboard() {
 
       {/* Quick actions */}
       <div>
-        <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>Quick Actions</h3>
+        <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Quick Actions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 14 }}>
           {QUICK_ACTIONS.map((q) => {
             const isLocked = !verified;
@@ -187,14 +190,14 @@ export function ResidentDashboard() {
                 key={q.labelText}
                 onClick={() =>
                   isLocked
-                    ? toast('🔒 Locked until verification — upload your supporting documents first.')
+                    ? toast(t('🔒 Locked until verification — upload your supporting documents first.'))
                     : navigate(q.to)
                 }
                 style={{ ...card, padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
               >
                 <div style={{ fontSize: 26 }}>{isLocked ? '🔒' : q.icon}</div>
                 <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 10, lineHeight: 1.35, color: isLocked ? '#9AA6B7' : '#33415E' }}>
-                  {q.labelText}
+                  {t(q.labelText)}
                 </div>
               </button>
             );
@@ -206,10 +209,15 @@ export function ResidentDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
         <div style={{ ...card, padding: '22px 26px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>My Recent Requests</h3>
-            <Link to="/resident/documents" style={{ fontSize: 13, fontWeight: 700 }}>View all →</Link>
+            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('My Recent Requests')}</h3>
+            <button
+              onClick={() => setAllReqOpen(true)}
+              style={{ background: 'none', border: 'none', padding: 0, font: '700 13px Poppins, sans-serif', color: '#2E66D0', cursor: 'pointer' }}
+            >
+              {t('View all →')}
+            </button>
           </div>
-          {recent.length === 0 && <p style={{ fontSize: 13.5, color: '#8A97AB' }}>Nothing filed yet.</p>}
+          {recent.length === 0 && <p style={{ fontSize: 13.5, color: '#8A97AB' }}>{t('Nothing filed yet.')}</p>}
           {recent.map((r) => {
             const status = STATUS_PILL[r.status];
             return (
@@ -218,9 +226,9 @@ export function ResidentDashboard() {
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#2E3A52', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {REQUEST_ICON[r.type] ?? '📄'} {r.title}
                   </div>
-                  <div style={{ fontSize: 12, color: '#8A97AB', marginTop: 3 }}>Filed {fmtDateLong(r.filedAt)}</div>
+                  <div style={{ fontSize: 12, color: '#8A97AB', marginTop: 3 }}>{t('Filed {date}', { date: fmtDateLong(r.filedAt) })}</div>
                 </div>
-                <span style={pill(status.kind)}>{status.labelText}</span>
+                <span style={pill(status.kind)}>{t(status.labelText)}</span>
               </div>
             );
           })}
@@ -228,11 +236,11 @@ export function ResidentDashboard() {
 
         <div style={{ ...card, padding: '22px 26px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>My Upcoming Bookings</h3>
-            <Link to="/resident/bookings" style={{ fontSize: 13, fontWeight: 700 }}>+ New Booking</Link>
+            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('My Upcoming Bookings')}</h3>
+            <Link to="/resident/bookings" style={{ fontSize: 13, fontWeight: 700 }}>{t('+ New Booking')}</Link>
           </div>
           {upcomingBookings.length === 0 && (
-            <p style={{ fontSize: 13.5, color: '#8A97AB' }}>No upcoming bookings — reserve a facility or equipment.</p>
+            <p style={{ fontSize: 13.5, color: '#8A97AB' }}>{t('No upcoming bookings — reserve a facility or equipment.')}</p>
           )}
           {upcomingBookings.map((b) => (
             <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -248,12 +256,44 @@ export function ResidentDashboard() {
                 </div>
               </div>
               <span style={pill(b.status === BookingStatus.CONFIRMED ? 'green' : 'yellow')}>
-                {b.status === BookingStatus.CONFIRMED ? 'Confirmed' : 'Pending'}
+                {b.status === BookingStatus.CONFIRMED ? t('Confirmed') : t('Pending')}
               </span>
             </div>
           ))}
         </div>
       </div>
+
+      {/* All requests popup — full list without leaving the dashboard */}
+      {allReqOpen && (
+        <Modal title={t('📄 All My Requests')} onClose={() => setAllReqOpen(false)} width={640}>
+          {(requests ?? []).length === 0 ? (
+            <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>{t('Nothing filed yet.')}</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {(requests ?? []).map((r) => {
+                const status = STATUS_PILL[r.status];
+                const chip = deadlineChip(r);
+                return (
+                  <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#2E3A52' }}>
+                        {REQUEST_ICON[r.type] ?? '📄'} {r.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#8A97AB', marginTop: 3 }}>
+                        {t('Filed {date}', { date: fmtDateLong(r.filedAt) })}
+                        {r.overdueDays > 0
+                          ? ` · ${t(r.overdueDays > 1 ? '⚠ Overdue by {n} days' : '⚠ Overdue by {n} day', { n: r.overdueDays })}`
+                          : chip.text ? ` · ${chip.text}` : ''}
+                      </div>
+                    </div>
+                    <span style={pill(status.kind)}>{t(status.labelText)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

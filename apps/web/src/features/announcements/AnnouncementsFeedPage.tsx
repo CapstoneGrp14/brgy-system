@@ -3,9 +3,11 @@ import { useAnnouncements } from '../../api/announcements';
 import { card } from '../../components/ui/kit';
 import { Select } from '../../components/ui/Select';
 import { fmtDateLong } from '../../components/ui/status';
+import { useT } from '../../i18n';
 
 /** Resident announcements feed (FR-9.3) with a year filter. */
 export function AnnouncementsFeedPage() {
+  const t = useT();
   const [year, setYear] = useState<string>('all');
   const { data: feed } = useAnnouncements(year === 'all' ? undefined : Number(year));
   const items = (feed?.items ?? []).filter((a) => a.channelBanner || a.urgent);
@@ -14,12 +16,12 @@ export function AnnouncementsFeedPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 780 }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 12.5, color: '#7E8CA3', fontWeight: 700 }}>YEAR</span>
+        <span style={{ fontSize: 12.5, color: '#7E8CA3', fontWeight: 700 }}>{t('YEAR')}</span>
         <Select
           value={year}
           onChange={setYear}
           options={[
-            { value: 'all', labelText: 'All years' },
+            { value: 'all', labelText: t('All years') },
             ...years.map((y) => ({ value: String(y), labelText: String(y) })),
           ]}
           style={{ width: 150 }}
@@ -28,7 +30,9 @@ export function AnnouncementsFeedPage() {
 
       {items.length === 0 && (
         <div style={{ ...card, padding: '26px 28px', textAlign: 'center', color: '#8A97AB', fontSize: 13.5 }}>
-          📭 No announcements {year === 'all' ? 'yet' : `in ${year}`} — barangay updates will appear here.
+          {year === 'all'
+            ? t('📭 No announcements yet — barangay updates will appear here.')
+            : t('📭 No announcements in {year} — barangay updates will appear here.', { year })}
         </div>
       )}
       {items.map((a) => (
@@ -56,7 +60,7 @@ export function AnnouncementsFeedPage() {
               </h3>
               {a.urgent && (
                 <span style={{ background: '#D64541', color: '#fff', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 800, letterSpacing: '.05em' }}>
-                  URGENT
+                  {t('URGENT')}
                 </span>
               )}
             </div>
@@ -64,7 +68,7 @@ export function AnnouncementsFeedPage() {
               {a.body}
             </p>
             <div style={{ fontSize: 12, color: '#8A97AB' }}>
-              Posted {fmtDateLong(a.createdAt)} · {a.authorLabel}
+              {t('Posted {date} · {author}', { date: fmtDateLong(a.createdAt), author: a.authorLabel })}
             </div>
           </div>
         </div>

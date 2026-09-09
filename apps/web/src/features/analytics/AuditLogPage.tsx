@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { downloadAuditCsv, useAuditLog } from '../../api/analytics';
 import { btnPrimary, card, cols, input, tableFixed, td, th } from '../../components/ui/kit';
+import { useT } from '../../i18n';
 
 const fmtStamp = (iso: string) =>
   new Date(iso).toLocaleString('en-US', {
@@ -13,6 +14,7 @@ const fmtStamp = (iso: string) =>
 
 /** Admin Audit Log (FR-13.1) — every significant action, searchable, CSV export. */
 export function AuditLogPage() {
+  const t = useT();
   const [q, setQ] = useState('');
   const { data: rows } = useAuditLog(q);
 
@@ -20,19 +22,19 @@ export function AuditLogPage() {
     <div style={{ ...card, padding: '22px 26px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>🔒 Audit Log</h2>
+          <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{t('🔒 Audit Log')}</h2>
           <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 14px' }}>
-            Every significant action — user and system processes alike. Latest {rows?.length ?? 0} entries.
+            {t('Every significant action — user and system processes alike. Latest {n} entries.', { n: rows?.length ?? 0 })}
           </p>
         </div>
         <button onClick={() => void downloadAuditCsv(q)} style={{ ...btnPrimary, width: 'auto', padding: '9px 16px', fontSize: 12.5 }}>
-          ⬇ Download CSV
+          {t('⬇ Download CSV')}
         </button>
       </div>
 
       <input
         style={{ ...input, maxWidth: 420, marginBottom: 16 }}
-        placeholder="🔍 Search actor, action, or target…"
+        placeholder={t('🔍 Search actor, action, or target…')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
@@ -46,15 +48,15 @@ export function AuditLogPage() {
           </colgroup>
           <thead>
             <tr>
-              <th style={th}>TIMESTAMP</th>
-              <th style={th}>ACTOR</th>
-              <th style={th}>ACTION</th>
-              <th style={th}>TARGET</th>
+              <th style={th}>{t('TIMESTAMP')}</th>
+              <th style={th}>{t('ACTOR')}</th>
+              <th style={th}>{t('ACTION')}</th>
+              <th style={th}>{t('TARGET')}</th>
             </tr>
           </thead>
           <tbody>
             {(rows ?? []).length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={4}>No matching entries.</td></tr>
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={4}>{t('No matching entries.')}</td></tr>
             )}
             {(rows ?? []).map((r) => (
               <tr key={r.id}>

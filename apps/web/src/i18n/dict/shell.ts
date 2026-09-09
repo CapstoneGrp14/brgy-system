@@ -1,0 +1,111 @@
+/** English → Filipino translations for the app shell (nav, header, sidebar, drawers). */
+export const shell: Record<string, string> = {
+  // Nav section headers
+  OVERVIEW: 'PANGKALAHATAN',
+  'MY REQUESTS': 'AKING MGA KAHILINGAN',
+  SERVICES: 'MGA SERBISYO',
+  ACCOUNT: 'AKAWNT',
+  GENERAL: 'PANGKALAHATAN',
+  WORKQUEUE: 'PILA NG TRABAHO',
+  SCHEDULING: 'ISKEDYUL',
+  'STUDENT SERVICES': 'SERBISYONG PANG-ESTUDYANTE',
+  COMMUNICATION: 'KOMUNIKASYON',
+  EMERGENCY: 'EMERHENSIYA',
+  ANALYTICS: 'ANALITIKS',
+  COMPLIANCE: 'PAGSUNOD',
+  'RESIDENT REGISTRY': 'REHISTRO NG RESIDENTE',
+  OPERATIONS: 'OPERASYON',
+  SYSTEM: 'SISTEMA',
+
+  // Nav items
+  Dashboard: 'Dashboard',
+  Announcements: 'Mga Anunsyo',
+  'Document Requests': 'Kahilingan sa Dokumento',
+  'Complaints & Blotter': 'Reklamo at Blotter',
+  'My Bookings': 'Aking mga Reserbasyon',
+  'Health & Medicine': 'Kalusugan at Gamot',
+  'Student Support': 'Suporta sa Estudyante',
+  'Emergency SOS': 'Emergency SOS',
+  'My Profile': 'Aking Profile',
+  'Upload Documents': 'Mag-upload ng Dokumento',
+  "Citizen's Charter": "Citizen's Charter",
+  'Resident Verification': 'Beripikasyon ng Residente',
+  'Document Types': 'Uri ng Dokumento',
+  'Booking Calendar': 'Kalendaryo ng Reserbasyon',
+  'Inventory & Supplies': 'Imbentaryo at Suplay',
+  'Masterlist Registry': 'Rehistro ng Masterlist',
+  'Post Announcement': 'Mag-post ng Anunsyo',
+  'SOS Map': 'Mapa ng SOS',
+  'Dashboard Overview': 'Buod ng Dashboard',
+  'Complaints Report': 'Ulat ng Reklamo',
+  'ARTA SLA Report': 'Ulat ng ARTA SLA',
+  'Inventory Overview': 'Buod ng Imbentaryo',
+  'Staff Accounts': 'Mga Akawnt ng Staff',
+  'Document Templates': 'Mga Template ng Dokumento',
+  'Booking Settings': 'Setting ng Reserbasyon',
+  'Verification Settings': 'Setting ng Beripikasyon',
+  'Assistant Knowledge': 'Kaalaman ng Assistant',
+  'Audit Log': 'Audit Log',
+
+  // Sidebar
+  BARANGAY: 'BARANGAY',
+  'EMPLOYEE PORTAL': 'PORTAL NG EMPLEYADO',
+  'ADMIN PORTAL': 'PORTAL NG ADMIN',
+  'Back to Staff Portal': 'Bumalik sa Staff Portal',
+  'My Resident Portal': 'Aking Resident Portal',
+  '⇄ Back to Staff Portal': '⇄ Bumalik sa Staff Portal',
+  '⇄ My Resident Portal': '⇄ Aking Resident Portal',
+  'VERIFIED RESIDENT': 'BERIPIKADONG RESIDENTE',
+  'PENDING VERIFICATION': 'NAKABINBING BERIPIKASYON',
+  'Sign Out': 'Mag-sign Out',
+  'You have been signed out.': 'Matagumpay kang naka-sign out.',
+  'Close menu': 'Isara ang menu',
+  'Expand sidebar': 'Palawakin ang sidebar',
+  'Collapse sidebar': 'Itiklop ang sidebar',
+
+  // Header
+  Menu: 'Menu',
+  'Loading session…': 'Nilo-load ang session…',
+  Notifications: 'Mga Abiso',
+  'Good morning': 'Magandang umaga',
+  'Good afternoon': 'Magandang hapon',
+  'Good evening': 'Magandang gabi',
+  'Chairman View': 'View ng Chairman',
+  Language: 'Wika',
+  English: 'English',
+  Filipino: 'Filipino',
+  '🌐 Sasagot na sa Filipino ang 591 Assistant.': '🌐 Sasagot na sa Filipino ang buong sistema.',
+  '🌐 591 Assistant will reply in English.': '🌐 The whole system will now display in English.',
+
+  // SOS banner
+  'View SOS Map →': 'Tingnan ang Mapa ng SOS →',
+  'ACTIVE SOS': 'AKTIBONG SOS',
+  'ACTIVE SOS — {label}': 'AKTIBONG SOS — {label}',
+  ' +{n} more': ' +{n} pa',
+
+  // RequireVerified gate
+  'Verification required': 'Kailangan ng Beripikasyon',
+  'This service unlocks once barangay staff verifies your identity. Upload a valid ID or supporting document — our OCR cross-checks it against the Barangay Census, then staff approves your account.':
+    'Mabubuksan ang serbisyong ito kapag na-verify na ng barangay staff ang iyong pagkakakilanlan. Mag-upload ng valid na ID o sumusuportang dokumento — kino-cross-check ito ng aming OCR sa Barangay Census, pagkatapos ay aaprubahan ng staff ang iyong akawnt.',
+  '📎 Upload Supporting Documents →': '📎 Mag-upload ng Sumusuportang Dokumento →',
+
+  // Notifications drawer
+  'Unmute notification sounds': 'I-unmute ang tunog ng abiso',
+  'Mute notification sounds': 'I-mute ang tunog ng abiso',
+  'Nothing yet — updates on your requests will land here.':
+    'Wala pa — dito lalabas ang mga update sa iyong mga kahilingan.',
+  'All clear — nothing needs your attention.':
+    'Malinaw ang lahat — walang kailangang asikasuhin.',
+  '{n} min ago': '{n} min ang nakalipas',
+  '{n} hour ago': '{n} oras ang nakalipas',
+  '{n} hours ago': '{n} oras ang nakalipas',
+  '{n} day ago': '{n} araw ang nakalipas',
+  '{n} days ago': '{n} araw ang nakalipas',
+
+  // Staff chat drawer
+  'Staff Chat': 'Chat ng Staff',
+  '💬 Staff Chat': '💬 Chat ng Staff',
+  'Internal channel — employees & admin': 'Internal na channel — empleyado at admin',
+  'No messages yet — say hi to the team 👋': 'Wala pang mensahe — batiin ang team 👋',
+  'Message the team…': 'Mag-mensahe sa team…',
+};

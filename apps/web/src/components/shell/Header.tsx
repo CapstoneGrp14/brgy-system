@@ -1,6 +1,7 @@
 import type { AuthUser } from '@brgy/shared';
 import { Role } from '@brgy/shared';
 import { useNotifications } from '../../api/requests';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 import { Select } from '../ui/Select';
@@ -14,15 +15,16 @@ export function Header({ title, icon, user }: { title: string; icon?: string | n
   const hasUnread = (notifications?.unreadCount ?? 0) > 0;
   const language = useUiStore((s) => s.language);
   const setLanguage = useUiStore((s) => s.setLanguage);
+  const t = useT();
 
   const now = new Date();
   const dateText = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening';
   const subtitle =
     user.role === Role.EMPLOYEE
-      ? `${dateText} · ${greeting}, ${user.fullName.split(' ')[0]}`
+      ? `${dateText} · ${t(greeting)}, ${user.fullName.split(' ')[0]}`
       : user.role === Role.ADMIN
-        ? `Barangay 591 · ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} · Chairman View`
+        ? `Barangay 591 · ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} · ${t('Chairman View')}`
         : null;
 
   return (
@@ -42,7 +44,7 @@ export function Header({ title, icon, user }: { title: string; icon?: string | n
         {isMobile && (
           <button
             onClick={openMobileNav}
-            title="Menu"
+            title={t('Menu')}
             style={{ background: '#F4F6FA', border: '1px solid #E3E8F0', borderRadius: 9, width: 38, height: 38, cursor: 'pointer', fontSize: 17, flexShrink: 0 }}
           >
             ☰
@@ -51,30 +53,32 @@ export function Header({ title, icon, user }: { title: string; icon?: string | n
         <div style={{ minWidth: 0 }}>
           <h1 style={{ margin: 0, font: `700 ${isMobile ? 17 : 21}px Poppins, sans-serif`, color: '#1E3A5F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {icon ? `${icon} ` : ''}
-            {title}
+            {t(title)}
           </h1>
           {subtitle && !isMobile && <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 2 }}>{subtitle}</div>}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-        {user.role === Role.RESIDENT && !isMobile && (
-          <Select
-            compact
-            value={language}
-            options={[
-              { value: 'en', labelText: 'English' },
-              { value: 'fil', labelText: 'Filipino' },
-            ]}
-            onChange={(v) => {
-              setLanguage(v as 'en' | 'fil');
-              toast(v === 'fil' ? '🌐 Sasagot na sa Filipino ang 591 Assistant.' : '🌐 591 Assistant will reply in English.');
-            }}
-            style={{ width: 120 }}
-          />
-        )}
+        <Select
+          compact
+          value={language}
+          options={[
+            { value: 'en', labelText: `🌐 ${t('English')}` },
+            { value: 'fil', labelText: `🌐 ${t('Filipino')}` },
+          ]}
+          onChange={(v) => {
+            setLanguage(v as 'en' | 'fil');
+            toast(
+              v === 'fil'
+                ? '🌐 Nakatakda na sa Filipino ang buong sistema.'
+                : '🌐 Language set to English across the system.',
+            );
+          }}
+          style={{ width: isMobile ? 108 : 128 }}
+        />
         <button
           onClick={toggleNotif}
-          title="Notifications"
+          title={t('Notifications')}
           style={{ position: 'relative', background: '#F4F6FA', border: '1px solid #E3E8F0', borderRadius: 9, width: 38, height: 38, cursor: 'pointer', fontSize: 16 }}
         >
           🔔

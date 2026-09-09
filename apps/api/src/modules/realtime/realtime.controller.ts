@@ -95,6 +95,12 @@ export class RealtimeController {
     return this.sos.active();
   }
 
+  @Get('sos/hotspot')
+  @Roles(Role.EMPLOYEE, Role.ADMIN)
+  hotspot() {
+    return this.sos.hotspot();
+  }
+
   @Post('sos/:id/resolve')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   resolve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {

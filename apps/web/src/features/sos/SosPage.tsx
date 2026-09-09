@@ -3,6 +3,7 @@ import { useCancelSos, useMySos, useTriggerSos } from '../../api/realtime';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { card } from '../../components/ui/kit';
 import { SosMap } from '../../components/ui/SosMap';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 
@@ -12,6 +13,7 @@ type Phase = 'idle' | 'sending';
 export function SosPage() {
   const toast = useUiStore((s) => s.toast);
   const isMobile = useIsMobile();
+  const t = useT();
   const { data: alert } = useMySos();
   const trigger = useTriggerSos();
   const cancel = useCancelSos();
@@ -23,9 +25,9 @@ export function SosPage() {
     const send = async (coords: { lat?: number; lng?: number; accuracy?: number }) => {
       try {
         await trigger.mutateAsync(coords);
-        toast('🆘 Alert transmitted — the barangay duty officer has been notified.');
+        toast(t('🆘 Alert transmitted — the barangay duty officer has been notified.'));
       } catch (err: any) {
-        toast(err?.response?.data?.message ?? 'Could not send the alert — try again.');
+        toast(err?.response?.data?.message ?? t('Could not send the alert — try again.'));
       } finally {
         setPhase('idle');
       }
@@ -42,7 +44,7 @@ export function SosPage() {
           accuracy: Math.round(pos.coords.accuracy),
         }),
       () => {
-        toast('📡 GPS unavailable — sending the alert without coordinates.');
+        toast(t('📡 GPS unavailable — sending the alert without coordinates.'));
         void send({});
       },
       { enableHighAccuracy: true, timeout: 8000 },
@@ -51,17 +53,17 @@ export function SosPage() {
 
   const onCancel = async () => {
     const ok = await confirmDialog({
-      title: 'Cancel SOS',
-      message: 'Mark yourself safe and stand down the alert?',
-      confirmText: 'I am safe — cancel it',
+      title: t('Cancel SOS'),
+      message: t('Mark yourself safe and stand down the alert?'),
+      confirmText: t('I am safe — cancel it'),
       tone: 'warn',
     });
     if (!ok) return;
     try {
       await cancel.mutateAsync();
-      toast('✅ Alert cancelled — glad you are safe po.');
+      toast(t('✅ Alert cancelled — glad you are safe po.'));
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Could not cancel — try again.');
+      toast(err?.response?.data?.message ?? t('Could not cancel — try again.'));
     }
   };
 
@@ -70,9 +72,9 @@ export function SosPage() {
       <div style={{ ...card, padding: '30px 28px', textAlign: 'center' }}>
         {!alert ? (
           <>
-            <h2 style={{ margin: 0, font: '700 18px Poppins, sans-serif', color: '#1E3A5F' }}>Emergency SOS</h2>
+            <h2 style={{ margin: 0, font: '700 18px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Emergency SOS')}</h2>
             <p style={{ fontSize: 13.5, color: '#64748B', margin: '8px 0 26px' }}>
-              One tap transmits your GPS location to the barangay duty officer in real time.
+              {t('One tap transmits your GPS location to the barangay duty officer in real time.')}
             </p>
             <button
               onClick={fire}
@@ -94,29 +96,29 @@ export function SosPage() {
               {phase === 'sending' ? '📡' : 'SOS'}
             </button>
             <p style={{ fontSize: 13, color: phase === 'sending' ? '#C96A11' : '#8A97AB', marginTop: 24, fontWeight: phase === 'sending' ? 700 : 500 }}>
-              {phase === 'sending' ? 'Requesting GPS location…' : 'Press only in a real emergency.'}
+              {phase === 'sending' ? t('Requesting GPS location…') : t('Press only in a real emergency.')}
             </p>
             <p style={{ fontSize: 12, color: '#8A97AB', margin: '14px 0 0' }}>
-              For life-threatening situations, also call <strong>911</strong>.
+              {t('For life-threatening situations, also call ')}<strong>911</strong>.
             </p>
           </>
         ) : (
           <>
             <div style={{ fontSize: 46 }}>🆘</div>
-            <h2 style={{ margin: '6px 0 0', font: '700 18px Poppins, sans-serif', color: '#C0392B' }}>Alert Active</h2>
+            <h2 style={{ margin: '6px 0 0', font: '700 18px Poppins, sans-serif', color: '#C0392B' }}>{t('Alert Active')}</h2>
             <p style={{ fontSize: 13.5, color: '#64748B', margin: '10px 0 4px' }}>
               {alert.lat !== null
-                ? 'Coordinates transmitted — barangay responders can see your pinned location.'
-                : 'Alert transmitted without GPS — responders were notified and may call you.'}
+                ? t('Coordinates transmitted — barangay responders can see your pinned location.')
+                : t('Alert transmitted without GPS — responders were notified and may call you.')}
             </p>
             <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '0 0 22px' }}>
-              Keep your phone with you. Help is on the way.
+              {t('Keep your phone with you. Help is on the way.')}
             </p>
             <button
               onClick={onCancel}
               style={{ background: '#fff', color: '#C0392B', border: '2px solid #F1C7C3', borderRadius: 10, padding: '12px 22px', font: '700 13.5px Poppins, sans-serif', cursor: 'pointer' }}
             >
-              I am safe — cancel the alert
+              {t('I am safe — cancel the alert')}
             </button>
           </>
         )}
@@ -126,10 +128,10 @@ export function SosPage() {
         <div style={{ ...card, padding: 16 }}>
           <SosMap
             height={isMobile ? 280 : 420}
-            pins={[{ id: alert.id, lat: alert.lat, lng: alert.lng, labelText: 'Your transmitted location' }]}
+            pins={[{ id: alert.id, lat: alert.lat, lng: alert.lng, labelText: t('Your transmitted location') }]}
           />
           <p style={{ fontSize: 12, color: '#8A97AB', margin: '10px 4px 0' }}>
-            📍 Accuracy ~{alert.accuracy ?? '—'} m · transmitted {new Date(alert.createdAt).toLocaleTimeString()}
+            {t('📍 Accuracy ~{acc} m · transmitted {time}', { acc: alert.accuracy ?? '—', time: new Date(alert.createdAt).toLocaleTimeString() })}
           </p>
         </div>
       )}

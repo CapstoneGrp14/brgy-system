@@ -12,6 +12,7 @@ import { btnBusy, btnPrimary, card, input, label, pill, successText } from '../.
 import { DatePicker } from '../../components/ui/DatePicker';
 import { Select } from '../../components/ui/Select';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
 const STATUS_PILL: Record<BookingStatus, { text: string; kind: 'green' | 'yellow' | 'red' }> = {
@@ -23,6 +24,7 @@ const STATUS_PILL: Record<BookingStatus, { text: string; kind: 'green' | 'yellow
 export function BookingsPage() {
   const toast = useUiStore((s) => s.toast);
   const isMobile = useIsMobile();
+  const t = useT();
   const { data: facilities } = useFacilities();
   const { data: slots } = useBookingSlots();
   const { data: myBookings } = useMyBookings();
@@ -45,7 +47,7 @@ export function BookingsPage() {
   const submit = async (slot: string, fromSuggestion = false) => {
     if (create.isPending) return;
     if (!date) {
-      toast('Pick a requested date first.');
+      toast(t('Pick a requested date first.'));
       return;
     }
     setSuccessMsg('');
@@ -60,8 +62,8 @@ export function BookingsPage() {
       setConflict(null);
       setSuccessMsg(
         fromSuggestion
-          ? `✅ Rebooked at ${booking.timeSlot} (off-peak) — no conflicts. Status: pending staff confirmation.`
-          : '✅ Booking request sent — no conflicts detected. Status: pending staff confirmation.',
+          ? t('✅ Rebooked at {slot} (off-peak) — no conflicts. Status: pending staff confirmation.', { slot: booking.timeSlot })
+          : t('✅ Booking request sent — no conflicts detected. Status: pending staff confirmation.'),
       );
       setPurpose('');
     } catch (err: any) {
@@ -71,7 +73,7 @@ export function BookingsPage() {
         return;
       }
       const msg = err?.response?.data?.message;
-      toast(Array.isArray(msg) ? msg[0] : (msg ?? 'Booking failed — try again.'));
+      toast(Array.isArray(msg) ? msg[0] : (msg ?? t('Booking failed — try again.')));
     }
   };
 
@@ -84,13 +86,13 @@ export function BookingsPage() {
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 0.95fr', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '26px 28px' }}>
         <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>
-          Facility & Equipment Booking
+          {t('Facility & Equipment Booking')}
         </h2>
         <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 18px' }}>
-          Our smart conflict resolver will suggest an alternative if your slot overlaps an existing booking.
+          {t('Our smart conflict resolver will suggest an alternative if your slot overlaps an existing booking.')}
         </p>
 
-        <label style={label}>Service / Facility Type</label>
+        <label style={label}>{t('Service / Facility Type')}</label>
         <Select
           value={facilityId}
           onChange={(v) => {
@@ -99,31 +101,31 @@ export function BookingsPage() {
             setSuccessMsg('');
           }}
           options={(facilities ?? []).map((f) => ({ value: f.id, labelText: f.name }))}
-          placeholder="Loading facilities…"
+          placeholder={t('Loading facilities…')}
           style={{ marginBottom: 12 }}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={label}>Requested Date</label>
+            <label style={label}>{t('Requested Date')}</label>
             <DatePicker value={date} onChange={(v) => { setDate(v); setConflict(null); }} style={{ marginBottom: 12 }} />
           </div>
           <div>
-            <label style={label}>Preferred Time</label>
+            <label style={label}>{t('Preferred Time')}</label>
             <Select
               value={timeSlot}
               onChange={(v) => { setTimeSlot(v); setConflict(null); }}
               options={(slots ?? []).map((s) => ({ value: s.label, labelText: s.label }))}
-              placeholder="Loading slots…"
+              placeholder={t('Loading slots…')}
               style={{ marginBottom: 12 }}
             />
           </div>
         </div>
 
-        <label style={label}>Purpose (optional)</label>
+        <label style={label}>{t('Purpose (optional)')}</label>
         <input
           style={{ ...input, marginBottom: 16 }}
-          placeholder="e.g., Basketball Practice, Birthday Party…"
+          placeholder={t('e.g., Basketball Practice, Birthday Party…')}
           value={purpose}
           onChange={(e) => setPurpose(e.target.value)}
         />
@@ -131,11 +133,11 @@ export function BookingsPage() {
         {conflict && (
           <div style={{ background: '#FBE4E1', border: '1px solid #EFB9B2', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: '#C0392B' }}>
-              ⚠ Conflict Detected: {conflict.message}
+              {t('⚠ Conflict Detected:')} {conflict.message}
             </div>
             {conflict.suggestedSlot && (
               <div style={{ fontSize: 13, color: '#7A3B33', marginTop: 6 }}>
-                💡 <strong>Smart Suggestion:</strong> shift to off-peak hour ({conflict.suggestedSlot}) — conflict-free, then awaits staff confirmation.
+                💡 <strong>{t('Smart Suggestion:')}</strong> {t('shift to off-peak hour ({slot}) — conflict-free, then awaits staff confirmation.', { slot: conflict.suggestedSlot })}
               </div>
             )}
             <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
@@ -144,14 +146,14 @@ export function BookingsPage() {
                   onClick={() => submit(conflict.suggestedSlot!, true)}
                   style={{ background: '#27AE60', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 15px', font: '700 12.5px Poppins, sans-serif', cursor: 'pointer' }}
                 >
-                  Accept Suggestion ({conflict.suggestedSlot})
+                  {t('Accept Suggestion ({slot})', { slot: conflict.suggestedSlot })}
                 </button>
               )}
               <button
                 onClick={() => setConflict(null)}
                 style={{ background: '#fff', color: '#33415E', border: '1.5px solid #DFE5EE', borderRadius: 8, padding: '9px 15px', font: '700 12.5px Poppins, sans-serif', cursor: 'pointer' }}
               >
-                Choose Another Time
+                {t('Choose Another Time')}
               </button>
             </div>
           </div>
@@ -160,18 +162,18 @@ export function BookingsPage() {
         {successMsg && <div style={{ ...successText, marginBottom: 14 }}>{successMsg}</div>}
 
         <button onClick={() => submit(timeSlot)} style={create.isPending ? btnBusy : btnPrimary}>
-          {create.isPending ? 'Checking availability…' : 'Submit'}
+          {create.isPending ? t('Checking availability…') : t('Submit')}
         </button>
         <p style={{ fontSize: 12, color: '#8A97AB', marginTop: 12, marginBottom: 0 }}>
-          Tip: Covered Court at 10:00 AM overlaps the recurring Zumba Class — try it to see the resolver.
+          {t('Tip: Covered Court at 10:00 AM overlaps the recurring Zumba Class — try it to see the resolver.')}
         </p>
       </div>
 
       <div style={{ ...card, padding: '24px 26px' }}>
         <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>
-          My Upcoming Bookings
+          {t('My Upcoming Bookings')}
         </h3>
-        {upcoming.length === 0 && <p style={{ fontSize: 13.5, color: '#8A97AB' }}>Nothing booked yet.</p>}
+        {upcoming.length === 0 && <p style={{ fontSize: 13.5, color: '#8A97AB' }}>{t('Nothing booked yet.')}</p>}
         {upcoming.map((b) => (
           <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div>
@@ -185,18 +187,18 @@ export function BookingsPage() {
                 {new Date(b.date + 'T00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} · {b.timeSlot}
               </div>
             </div>
-            <span style={pill(STATUS_PILL[b.status].kind)}>{STATUS_PILL[b.status].text}</span>
+            <span style={pill(STATUS_PILL[b.status].kind)}>{t(STATUS_PILL[b.status].text)}</span>
           </div>
         ))}
         {past.length > 0 && (
           <>
             <h4 style={{ margin: '18px 0 8px', font: '700 12px Poppins, sans-serif', color: '#7E8CA3', letterSpacing: '.06em' }}>
-              PAST / REJECTED
+              {t('PAST / REJECTED')}
             </h4>
             {past.slice(0, 5).map((b) => (
               <div key={b.id} style={{ padding: '8px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, color: '#8A97AB' }}>
                 <span>{b.facilityName.split(' (')[0]} · {b.date} {b.timeSlot}</span>
-                <span style={pill(STATUS_PILL[b.status].kind)}>{STATUS_PILL[b.status].text}</span>
+                <span style={pill(STATUS_PILL[b.status].kind)}>{t(STATUS_PILL[b.status].text)}</span>
               </div>
             ))}
           </>

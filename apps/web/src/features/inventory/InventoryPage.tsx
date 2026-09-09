@@ -4,6 +4,7 @@ import { useAddItem, useDeleteItem, useInventory, useRestock, useUpdateItem } fr
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { btnBusy, btnPrimary, card, cols, input, label, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { Select } from '../../components/ui/Select';
+import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
@@ -28,6 +29,7 @@ export function InventoryPage() {
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
   const toast = useUiStore((s) => s.toast);
+  const t = useT();
   const [restockFor, setRestockFor] = useState<string | null>(null);
   const [qty, setQty] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -56,11 +58,11 @@ export function InventoryPage() {
 
   const doSave = async () => {
     if (saving) return;
-    if (!newName.trim()) return toast('Give the item a name.');
+    if (!newName.trim()) return toast(t('Give the item a name.'));
     const stockQty = Number(newQty);
     const threshold = Number(newThreshold);
-    if (!Number.isInteger(stockQty) || stockQty < 0) return toast('Enter the stock quantity.');
-    if (!Number.isInteger(threshold) || threshold < 0) return toast('Enter the auto-close threshold.');
+    if (!Number.isInteger(stockQty) || stockQty < 0) return toast(t('Enter the stock quantity.'));
+    if (!Number.isInteger(threshold) || threshold < 0) return toast(t('Enter the auto-close threshold.'));
     const body = {
       name: newName.trim(),
       category: newCategory,
@@ -71,54 +73,56 @@ export function InventoryPage() {
     try {
       if (editFor) {
         const updated = await updateItem.mutateAsync({ id: editFor, ...body });
-        toast(`✏️ ${updated.name} updated${updated.isOpen ? '' : ' — below threshold, resident requests closed'}.`);
+        const suffix = updated.isOpen ? '' : t(' — below threshold, resident requests closed');
+        toast(t('✏️ {name} updated{suffix}.', { name: updated.name, suffix }));
       } else {
         const created = await addItem.mutateAsync(body);
         toast(
           newCategory === 'SUPPLY'
-            ? `📦 ${created.name} added — now bookable under My Bookings.`
-            : `📦 ${created.name} added — residents will see it under Health & Medicine.`,
+            ? t('📦 {name} added — now bookable under My Bookings.', { name: created.name })
+            : t('📦 {name} added — residents will see it under Health & Medicine.', { name: created.name }),
         );
       }
       setShowForm(false);
       resetForm();
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? (editFor ? 'Could not save the changes.' : 'Could not add the item.'));
+      toast(err?.response?.data?.message ?? (editFor ? t('Could not save the changes.') : t('Could not add the item.')));
     }
   };
 
   const doDelete = async (id: string, name: string, category: InventoryCategory) => {
     const ok = await confirmDialog({
-      title: 'Delete Inventory Item',
+      title: t('Delete Inventory Item'),
       message:
         category === 'SUPPLY'
-          ? `Remove "${name}" from inventory? Its booking option will also be retired from My Bookings.`
-          : `Remove "${name}" from inventory? Residents will no longer see it under Health & Medicine.`,
-      confirmText: 'Delete',
+          ? t('Remove "{name}" from inventory? Its booking option will also be retired from My Bookings.', { name })
+          : t('Remove "{name}" from inventory? Residents will no longer see it under Health & Medicine.', { name }),
+      confirmText: t('Delete'),
       tone: 'danger',
     });
     if (!ok) return;
     try {
       await deleteItem.mutateAsync(id);
-      toast(`🗑️ ${name} removed from inventory.`);
+      toast(t('🗑️ {name} removed from inventory.', { name }));
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Could not delete the item.');
+      toast(err?.response?.data?.message ?? t('Could not delete the item.'));
     }
   };
 
   const doRestock = async (id: string, name: string) => {
     const n = Number(qty);
     if (!Number.isInteger(n) || n < 1) {
-      toast('Enter how many units to add.');
+      toast(t('Enter how many units to add.'));
       return;
     }
     try {
       const updated = await restock.mutateAsync({ id, qty: n });
-      toast(`📦 ${name} restocked to ${updated.stockQty} ${updated.unit}${updated.isOpen ? ' — resident requests re-opened.' : '.'}`);
+      const suffix = updated.isOpen ? t(' — resident requests re-opened.') : '.';
+      toast(t('📦 {name} restocked to {qty} {unit}{suffix}', { name, qty: updated.stockQty, unit: updated.unit, suffix }));
       setRestockFor(null);
       setQty('');
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? 'Restock failed.');
+      toast(err?.response?.data?.message ?? t('Restock failed.'));
     }
   };
 
@@ -129,11 +133,11 @@ export function InventoryPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>
-            {isAdmin ? 'Asset & Inventory Oversight' : 'Digital Equipment & Medicine Inventory'}
+            {isAdmin ? t('Asset & Inventory Oversight') : t('Digital Equipment & Medicine Inventory')}
           </h2>
           <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 14px' }}>
-            When stock falls to the threshold, the resident request option automatically closes.
-            {lowCount > 0 && ` · ${lowCount} item${lowCount === 1 ? '' : 's'} auto-closed`}
+            {t('When stock falls to the threshold, the resident request option automatically closes.')}
+            {lowCount > 0 && ` · ${t(lowCount === 1 ? '{n} item auto-closed' : '{n} items auto-closed', { n: lowCount })}`}
           </p>
         </div>
         {isAdmin && (
@@ -141,7 +145,7 @@ export function InventoryPage() {
             onClick={() => { if (showForm) resetForm(); setShowForm((v) => !v); }}
             style={{ ...btnPrimary, width: 'auto', padding: '10px 18px' }}
           >
-            {showForm ? 'Close' : '+ Add Item'}
+            {showForm ? t('Close') : t('+ Add Item')}
           </button>
         )}
       </div>
@@ -149,45 +153,44 @@ export function InventoryPage() {
       {isAdmin && showForm && (
         <div style={{ background: '#F7F9FC', border: '1px solid #E9EDF4', borderRadius: 12, padding: '18px 20px', marginBottom: 18 }}>
           {editFor && (
-            <div style={{ font: '700 13px Poppins, sans-serif', color: '#1E3A5F', marginBottom: 12 }}>✏️ Editing “{newName}”</div>
+            <div style={{ font: '700 13px Poppins, sans-serif', color: '#1E3A5F', marginBottom: 12 }}>{t('✏️ Editing “{name}”', { name: newName })}</div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 2fr 1fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
             <div>
-              <label style={label}>Item Name</label>
-              <input style={input} placeholder="e.g. Wheelchair" value={newName} onChange={(e) => setNewName(e.target.value)} />
+              <label style={label}>{t('Item Name')}</label>
+              <input style={input} placeholder={t('e.g. Wheelchair')} value={newName} onChange={(e) => setNewName(e.target.value)} />
             </div>
             <div>
-              <label style={label}>Category · Where Residents See It</label>
-              <Select value={newCategory} onChange={(v) => setNewCategory(v as InventoryCategory)} options={CATEGORY_OPTIONS} />
+              <label style={label}>{t('Category · Where Residents See It')}</label>
+              <Select value={newCategory} onChange={(v) => setNewCategory(v as InventoryCategory)} options={CATEGORY_OPTIONS.map((o) => ({ ...o, labelText: t(o.labelText) }))} />
             </div>
             <div>
-              <label style={label}>{editFor ? 'Stock on Hand' : 'Starting Stock'}</label>
+              <label style={label}>{editFor ? t('Stock on Hand') : t('Starting Stock')}</label>
               <input style={input} type="number" min={0} placeholder="0" value={newQty} onChange={(e) => setNewQty(e.target.value)} />
             </div>
             <div>
-              <label style={label}>Unit</label>
+              <label style={label}>{t('Unit')}</label>
               <input style={input} placeholder="Pcs" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} />
             </div>
             <div>
-              <label style={label}>Threshold</label>
+              <label style={label}>{t('Threshold')}</label>
               <input style={input} type="number" min={0} placeholder="0" value={newThreshold} onChange={(e) => setNewThreshold(e.target.value)} />
             </div>
           </div>
           <p style={{ fontSize: 12, color: '#8A97AB', margin: '10px 0 12px' }}>
-            💊 Medicine & 🩺 medical equipment appear under <strong>Health & Medicine</strong>; 🪑 event supplies become
-            bookable under <strong>My Bookings</strong>. Requests auto-close when stock falls to the threshold.
-            {editFor && ' Stock changes here are recorded as a correction in the movement ledger.'}
+            {t('💊 Medicine & 🩺 medical equipment appear under')} <strong>{t('Health & Medicine')}</strong>{t('; 🪑 event supplies become bookable under')} <strong>{t('My Bookings')}</strong>{t('. Requests auto-close when stock falls to the threshold.')}
+            {editFor && ' ' + t('Stock changes here are recorded as a correction in the movement ledger.')}
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={doSave} style={saving ? { ...btnBusy, width: 'auto', padding: '10px 20px' } : { ...btnPrimary, width: 'auto', padding: '10px 20px' }}>
-              {saving ? 'Saving…' : editFor ? 'Save Changes' : 'Add to Inventory'}
+              {saving ? t('Saving…') : editFor ? t('Save Changes') : t('Add to Inventory')}
             </button>
             {editFor && (
               <button
                 onClick={() => { resetForm(); setShowForm(false); }}
                 style={{ background: 'none', border: 'none', color: '#64748B', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
               >
-                Cancel
+                {t('Cancel')}
               </button>
             )}
           </div>
@@ -203,11 +206,11 @@ export function InventoryPage() {
           </colgroup>
           <thead>
             <tr>
-              <th style={th}>ITEM / CATEGORY</th>
-              <th style={th}>QUANTITY LEFT</th>
-              <th style={th}>THRESHOLD LIMIT</th>
-              <th style={th}>REQUEST STATUS</th>
-              {isAdmin && <th style={th}>ACTION</th>}
+              <th style={th}>{t('ITEM / CATEGORY')}</th>
+              <th style={th}>{t('QUANTITY LEFT')}</th>
+              <th style={th}>{t('THRESHOLD LIMIT')}</th>
+              <th style={th}>{t('REQUEST STATUS')}</th>
+              {isAdmin && <th style={th}>{t('ACTION')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -215,15 +218,15 @@ export function InventoryPage() {
               <tr key={i.id} style={!i.isOpen ? { background: '#FEF5F4', boxShadow: 'inset 3px 0 0 #D64541' } : {}}>
                 <td style={{ ...td, fontWeight: 700 }}>
                   {i.name}
-                  <span style={{ fontWeight: 500, color: '#8A97AB' }}> ({CATEGORY_LABEL[i.category]})</span>
+                  <span style={{ fontWeight: 500, color: '#8A97AB' }}> ({t(CATEGORY_LABEL[i.category])})</span>
                 </td>
                 <td style={{ ...td, fontWeight: 700, color: i.isOpen ? '#2E3A52' : '#C0392B' }}>
                   {i.stockQty} {i.unit}
-                  {!i.isOpen && i.stockQty === 0 && ' (Empty)'}
+                  {!i.isOpen && i.stockQty === 0 && ` ${t('(Empty)')}`}
                 </td>
                 <td style={td}>{i.threshold} {i.unit}</td>
                 <td style={td}>
-                  {i.isOpen ? <span style={pill('green')}>Open</span> : <span style={pill('red')}>Auto-Closed</span>}
+                  {i.isOpen ? <span style={pill('green')}>{t('Open')}</span> : <span style={pill('red')}>{t('Auto-Closed')}</span>}
                 </td>
                 {isAdmin && (
                   <td style={td}>
@@ -239,7 +242,7 @@ export function InventoryPage() {
                           autoFocus
                         />
                         <button onClick={() => doRestock(i.id, i.name)} style={{ background: '#27AE60', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 12px', font: '700 12px Poppins, sans-serif', cursor: 'pointer' }}>
-                          {restock.isPending ? '…' : 'Add'}
+                          {restock.isPending ? '…' : t('Add')}
                         </button>
                         <button onClick={() => { setRestockFor(null); setQty(''); }} style={{ background: 'none', border: 'none', color: '#64748B', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
                           ✕
@@ -251,18 +254,18 @@ export function InventoryPage() {
                           onClick={() => { setRestockFor(i.id); setQty(''); }}
                           style={{ background: 'none', border: 'none', color: i.isOpen ? '#2E66D0' : '#C0392B', fontWeight: 700, fontSize: 13, cursor: 'pointer', width: 96, textAlign: 'left', padding: 0, flex: 'none' }}
                         >
-                          {i.isOpen ? 'Add Stock' : 'Restock Item'}
+                          {i.isOpen ? t('Add Stock') : t('Restock Item')}
                         </button>
                         <button
                           onClick={() => startEdit(i)}
-                          title="Edit item"
+                          title={t('Edit item')}
                           style={{ background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', padding: 0, width: 24, textAlign: 'center', flex: 'none' }}
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => doDelete(i.id, i.name, i.category)}
-                          title="Delete item"
+                          title={t('Delete item')}
                           style={{ background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', padding: 0, width: 24, textAlign: 'center', flex: 'none' }}
                         >
                           🗑️

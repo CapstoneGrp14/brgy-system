@@ -1,4 +1,5 @@
 import { useRef, useState, type CSSProperties } from 'react';
+import { useT } from '../../i18n';
 
 const fmtSize = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
@@ -14,7 +15,7 @@ export function FileDropzone({
   file,
   onFile,
   accept = 'image/jpeg,image/png,image/webp,application/pdf',
-  hint = 'JPG, PNG, WebP, or PDF · max 8 MB',
+  hint,
   disabled = false,
   style,
 }: {
@@ -27,6 +28,8 @@ export function FileDropzone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const t = useT();
+  const hintText = hint ?? t('JPG, PNG, WebP, or PDF · max 8 MB');
 
   const pick = (f: File | undefined) => {
     if (f) onFile(f);
@@ -51,7 +54,7 @@ export function FileDropzone({
           <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1F8B4C', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {file.name}
           </div>
-          <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>{fmtSize(file.size)} · ready to submit</div>
+          <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>{fmtSize(file.size)} · {t('ready to submit')}</div>
         </div>
         {!disabled && (
           <button
@@ -62,7 +65,7 @@ export function FileDropzone({
             }}
             style={{ background: 'none', border: 'none', color: '#C0392B', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}
           >
-            ✕ Remove
+            {t('✕ Remove')}
           </button>
         )}
       </div>
@@ -96,10 +99,10 @@ export function FileDropzone({
     >
       <div style={{ fontSize: 30 }}>📤</div>
       <div style={{ font: '700 14px Poppins, sans-serif', color: '#1E3A5F', marginTop: 8 }}>
-        {dragOver ? 'Drop your file here' : 'Drag & drop your file here'}
+        {dragOver ? t('Drop your file here') : t('Drag & drop your file here')}
       </div>
       <div style={{ fontSize: 12.5, color: '#8A97AB', marginTop: 4 }}>
-        or <span style={{ color: '#2E66D0', fontWeight: 700 }}>browse from your device</span> · {hint}
+        {t('or')} <span style={{ color: '#2E66D0', fontWeight: 700 }}>{t('browse from your device')}</span> · {hintText}
       </div>
       <input
         ref={inputRef}

@@ -4,6 +4,7 @@ import { useState, type MouseEvent } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { logout } from '../../api/auth';
 import { NAV } from '../../app/nav';
+import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
 const initials = (name: string) =>
@@ -32,6 +33,7 @@ export function Sidebar({
   const toggleNav = useUiStore((s) => s.toggleNav);
   const toast = useUiStore((s) => s.toast);
   const navigate = useNavigate();
+  const t = useT();
   /** Collapsed-rail tooltip (position: fixed — immune to the sidebar's overflow clipping). */
   const [tip, setTip] = useState<{ top: number; text: string } | null>(null);
   const tipHandlers = (text: string) =>
@@ -45,15 +47,16 @@ export function Sidebar({
         }
       : {};
 
-  const portalLabel =
-    portal === Role.RESIDENT ? 'BARANGAY' : portal === Role.EMPLOYEE ? 'EMPLOYEE PORTAL' : 'ADMIN PORTAL';
+  const portalLabel = t(
+    portal === Role.RESIDENT ? 'BARANGAY' : portal === Role.EMPLOYEE ? 'EMPLOYEE PORTAL' : 'ADMIN PORTAL',
+  );
   // Dual-role staff can hop between their staff portal and their own resident portal.
   const canSwitch = user.role !== Role.RESIDENT && user.isResident;
   const inResidentPortal = portal === Role.RESIDENT;
 
   const onSignOut = async () => {
     await logout();
-    toast('You have been signed out.');
+    toast(t('You have been signed out.'));
     navigate('/login');
   };
 
@@ -130,7 +133,7 @@ export function Sidebar({
         </div>
         <button
           onClick={mobile ? onNavigate : toggleNav}
-          title={mobile ? 'Close menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={mobile ? t('Close menu') : collapsed ? t('Expand sidebar') : t('Collapse sidebar')}
           style={{
             background: 'rgba(255,255,255,.08)',
             border: 'none',
@@ -196,7 +199,7 @@ export function Sidebar({
                   color: user.verificationStatus === VerificationStatus.VERIFIED ? '#6FDF9A' : '#FFC53D',
                 }}
               >
-                {user.verificationStatus === VerificationStatus.VERIFIED ? 'VERIFIED RESIDENT' : 'PENDING VERIFICATION'}
+                {t(user.verificationStatus === VerificationStatus.VERIFIED ? 'VERIFIED RESIDENT' : 'PENDING VERIFICATION')}
               </span>
             )}
           </div>
@@ -209,7 +212,7 @@ export function Sidebar({
             navigate(inResidentPortal ? (user.role === Role.ADMIN ? '/admin/overview' : '/employee/dashboard') : '/resident/dashboard');
             onNavigate?.();
           }}
-          {...tipHandlers(inResidentPortal ? 'Back to Staff Portal' : 'My Resident Portal')}
+          {...tipHandlers(t(inResidentPortal ? 'Back to Staff Portal' : 'My Resident Portal'))}
           style={{
             margin: collapsed ? '10px 8px 0' : '12px 16px 0',
             padding: collapsed ? '9px 0' : '9px 12px',
@@ -220,9 +223,9 @@ export function Sidebar({
             font: '700 12px Poppins, sans-serif',
             cursor: 'pointer',
           }}
-          title={inResidentPortal ? 'Back to Staff Portal' : 'My Resident Portal'}
+          title={t(inResidentPortal ? 'Back to Staff Portal' : 'My Resident Portal')}
         >
-          {collapsed ? '⇄' : inResidentPortal ? '⇄ Back to Staff Portal' : '⇄ My Resident Portal'}
+          {collapsed ? '⇄' : t(inResidentPortal ? '⇄ Back to Staff Portal' : '⇄ My Resident Portal')}
         </button>
       )}
 
@@ -231,7 +234,7 @@ export function Sidebar({
           <div key={section.labelText}>
             {!collapsed && (
               <div style={{ padding: '14px 21px 6px', fontSize: 10.5, fontWeight: 800, letterSpacing: '.12em', color: '#7E93AE' }}>
-                {section.labelText}
+                {t(section.labelText)}
               </div>
             )}
             {section.items.map((item) => (
@@ -239,7 +242,7 @@ export function Sidebar({
                 key={item.path}
                 to={item.path}
                 onClick={onNavigate}
-                {...tipHandlers(item.labelText)}
+                {...tipHandlers(t(item.labelText))}
                 style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
@@ -256,7 +259,7 @@ export function Sidebar({
                 })}
               >
                 <span>{item.icon}</span>
-                {!collapsed && <span>{item.labelText}</span>}
+                {!collapsed && <span>{t(item.labelText)}</span>}
               </NavLink>
             ))}
           </div>
@@ -265,7 +268,7 @@ export function Sidebar({
 
       <button
         onClick={onSignOut}
-        {...tipHandlers('Sign Out')}
+        {...tipHandlers(t('Sign Out'))}
         style={{
           padding: collapsed ? '14px 0' : '14px 21px',
           display: 'flex',
@@ -282,7 +285,7 @@ export function Sidebar({
         }}
       >
         <span>↩</span>
-        {!collapsed && <span>Sign Out</span>}
+        {!collapsed && <span>{t('Sign Out')}</span>}
       </button>
     </aside>
   );

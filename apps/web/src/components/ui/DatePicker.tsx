@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useT } from '../../i18n';
 import { Select } from './Select';
 
 const MONTHS = [
@@ -47,6 +48,7 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const { date, time } = parseValue(value);
+  const t = useT();
 
   const today = new Date();
   const selected = date ? new Date(date + 'T00:00') : null;
@@ -87,11 +89,11 @@ export function DatePicker({
   };
 
   const displayText = (() => {
-    if (!date) return placeholder ?? (withTime ? 'Pick date & time…' : 'Pick a date…');
+    if (!date) return placeholder ?? (withTime ? t('Pick date & time…') : t('Pick a date…'));
     const base = new Date(date + 'T00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     if (!withTime || !time) return base;
-    const t = TIME_OPTIONS.find((o) => o.value === time)?.labelText ?? time;
-    return `${base} · ${t}`;
+    const timeLabel = TIME_OPTIONS.find((o) => o.value === time)?.labelText ?? time;
+    return `${base} · ${timeLabel}`;
   })();
 
   const navBtn: CSSProperties = {
@@ -165,7 +167,7 @@ export function DatePicker({
               compact
               value={String(viewMonth)}
               onChange={(v) => setViewMonth(Number(v))}
-              options={MONTHS.map((m, i) => ({ value: String(i), labelText: m }))}
+              options={MONTHS.map((m, i) => ({ value: String(i), labelText: t(m) }))}
               style={{ flex: 1 }}
             />
             <Select
@@ -181,7 +183,7 @@ export function DatePicker({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
             {WEEKDAYS.map((d) => (
               <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#7E8CA3', padding: '4px 0' }}>
-                {d}
+                {t(d)}
               </div>
             ))}
           </div>
@@ -225,7 +227,7 @@ export function DatePicker({
 
           {withTime && (
             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#33415E', flexShrink: 0 }}>🕐 Time</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#33415E', flexShrink: 0 }}>{t('🕐 Time')}</span>
               <Select
                 compact
                 value={time}
@@ -233,7 +235,7 @@ export function DatePicker({
                   emit(date || toDateString(today.getFullYear(), today.getMonth(), today.getDate()), t);
                 }}
                 options={TIME_OPTIONS}
-                placeholder="Pick time…"
+                placeholder={t('Pick time…')}
                 style={{ flex: 1 }}
               />
             </div>
