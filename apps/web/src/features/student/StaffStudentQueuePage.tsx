@@ -89,7 +89,7 @@ export function StaffStudentQueuePage() {
                       <button
                         onClick={() => onAction(r.id, r.title)}
                         disabled={advance.isPending}
-                        style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', textAlign: 'left', lineHeight: 1.3 }}
                       >
                         {t(r.actionText)}
                       </button>

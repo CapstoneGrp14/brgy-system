@@ -83,7 +83,7 @@ export function BookingsPage() {
   const past = (myBookings ?? []).filter((b) => !upcoming.includes(b));
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 0.95fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '26px 28px' }}>
         <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>
           {t('Facility & Equipment Booking')}
@@ -105,7 +105,7 @@ export function BookingsPage() {
           style={{ marginBottom: 12 }}
         />
 
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
           <div>
             <label style={label}>{t('Requested Date')}</label>
             <DatePicker value={date} onChange={(v) => { setDate(v); setConflict(null); }} style={{ marginBottom: 12 }} />
@@ -196,8 +196,8 @@ export function BookingsPage() {
               {t('PAST / REJECTED')}
             </h4>
             {past.slice(0, 5).map((b) => (
-              <div key={b.id} style={{ padding: '8px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, color: '#8A97AB' }}>
-                <span>{b.facilityName.split(' (')[0]} · {b.date} {b.timeSlot}</span>
+              <div key={b.id} style={{ padding: '8px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', fontSize: 12.5, color: '#8A97AB' }}>
+                <span style={{ minWidth: 0 }}>{b.facilityName.split(' (')[0]} · {b.date} {b.timeSlot}</span>
                 <span style={pill(STATUS_PILL[b.status].kind)}>{t(STATUS_PILL[b.status].text)}</span>
               </div>
             ))}

@@ -116,7 +116,7 @@ export function EmployeeDashboard() {
         {t('✅ No active SOS alerts — all clear.')}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
         {statCards.map((s) => (
           <div key={s.labelText} style={{ ...card, padding: '18px 20px' }}>
             <div style={{ fontSize: 12.5, color: '#64748B', fontWeight: 700 }}>
@@ -178,7 +178,7 @@ export function EmployeeDashboard() {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={tableFixed(720)}>
+          <table style={tableFixed(880)}>
             <colgroup>
               {cols('25%', '16%', '9%', '13%', '13%', '24%').map((c) => (
                 <col key={c.key} style={c.style} />
@@ -232,12 +232,12 @@ export function EmployeeDashboard() {
                       <span style={pill(status.kind)}>{t(status.labelText)}</span>
                     </td>
                     <td style={td}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                         {r.actionText ? (
                           <button
                             onClick={() => onAction(r.id)}
                             disabled={advance.isPending}
-                            style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', textAlign: 'left', lineHeight: 1.3, flexShrink: 0 }}
                           >
                             {t(r.actionText)}
                           </button>
@@ -252,7 +252,7 @@ export function EmployeeDashboard() {
                                 .then((url) => window.open(url, '_blank'))
                                 .catch(() => toast(t('Print download failed — try again.')))
                             }
-                            style={{ background: 'none', border: 'none', color: '#64748B', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            style={{ background: 'none', border: 'none', color: '#64748B', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', textAlign: 'left', lineHeight: 1.3, flexShrink: 0 }}
                           >
                             {t('⎙ Print')}
                           </button>
@@ -328,7 +328,7 @@ export function EmployeeDashboard() {
             </div>
           </DetailRow>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '0 18px' }}>
             <DetailRow labelText={t('Resident')}>{detail.residentName ?? '—'}</DetailRow>
             <DetailRow labelText={t('Request Type')}>{detail.subtype.replaceAll('_', ' ')}</DetailRow>
             <DetailRow labelText={t('Filed')}>{fmtDateLong(detail.filedAt)}</DetailRow>

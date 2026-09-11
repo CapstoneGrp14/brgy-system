@@ -50,7 +50,7 @@ export function SosMapPage() {
   const heat = (hotspot ?? []).map((p) => ({ lat: p.lat, lng: p.lng }));
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '360px 1fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : '360px minmax(0, 1fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ ...card, padding: '16px 18px', background: list.length ? '#FEF5F4' : undefined, boxShadow: list.length ? 'inset 3px 0 0 #D64541' : undefined }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

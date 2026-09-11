@@ -196,6 +196,9 @@ export function Sidebar({
                   fontSize: 9.5,
                   fontWeight: 800,
                   letterSpacing: '.07em',
+                  lineHeight: 1.35,
+                  maxWidth: '100%',
+                  overflowWrap: 'break-word',
                   color: user.verificationStatus === VerificationStatus.VERIFIED ? '#6FDF9A' : '#FFC53D',
                 }}
               >
@@ -222,6 +225,8 @@ export function Sidebar({
             color: '#F5A81C',
             font: '700 12px Poppins, sans-serif',
             cursor: 'pointer',
+            lineHeight: 1.35,
+            overflowWrap: 'break-word',
           }}
           title={t(inResidentPortal ? 'Back to Staff Portal' : 'My Resident Portal')}
         >
@@ -233,7 +238,7 @@ export function Sidebar({
         {NAV[portal].map((section) => (
           <div key={section.labelText}>
             {!collapsed && (
-              <div style={{ padding: '14px 21px 6px', fontSize: 10.5, fontWeight: 800, letterSpacing: '.12em', color: '#7E93AE' }}>
+              <div style={{ padding: '14px 21px 6px', fontSize: 10.5, fontWeight: 800, letterSpacing: '.12em', color: '#7E93AE', lineHeight: 1.35, overflowWrap: 'break-word' }}>
                 {t(section.labelText)}
               </div>
             )}
@@ -258,8 +263,12 @@ export function Sidebar({
                   color: item.sos ? '#FF8B7E' : isActive ? '#fff' : '#C2CFE0',
                 })}
               >
-                <span>{item.icon}</span>
-                {!collapsed && <span>{t(item.labelText)}</span>}
+                <span style={{ flexShrink: 0 }}>{item.icon}</span>
+                {!collapsed && (
+                  <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'break-word' }}>
+                    {t(item.labelText)}
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
@@ -284,8 +293,12 @@ export function Sidebar({
           fontWeight: 600,
         }}
       >
-        <span>↩</span>
-        {!collapsed && <span>{t('Sign Out')}</span>}
+        <span style={{ flexShrink: 0 }}>↩</span>
+        {!collapsed && (
+          <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'break-word', textAlign: 'left' }}>
+            {t('Sign Out')}
+          </span>
+        )}
       </button>
     </aside>
   );

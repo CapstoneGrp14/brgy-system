@@ -126,7 +126,7 @@ export function AdminOverviewPage() {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 18 }}>
         <ChartCard title={t('⚖️ Complaint Trend — Filed vs Resolved (6 months)')}>
           <ResponsiveContainer>
             <LineChart data={o.complaintTrend} margin={{ top: 6, right: 12, left: -18, bottom: 0 }}>
@@ -206,7 +206,7 @@ export function AdminOverviewPage() {
           {t('⏱️ ARTA 3-7-20 Compliance (all time)')}
         </h3>
         <div style={{ overflowX: 'auto' }}>
-          <table style={tableFixed(680)}>
+          <table style={tableFixed(820)}>
             <colgroup>
               {cols('30%', '14%', '16%', '14%', '12%', '14%').map((c) => (
                 <col key={c.key} style={c.style} />

@@ -58,6 +58,26 @@ export function useAddRecord() {
   });
 }
 
+export function useUpdateRecord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: AddRecordInput & { id: string }) =>
+      (await api.patch(`/masterlist/${id}`, input)).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['masterlist'] }),
+  });
+}
+
+export function useDeleteRecord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/masterlist/${id}`);
+      return id;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['masterlist'] }),
+  });
+}
+
 export interface ImportResult {
   added: number;
   updated: number;

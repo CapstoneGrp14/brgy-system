@@ -68,7 +68,7 @@ export function SosPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile || !alert ? '1fr' : '380px 1fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile || !alert ? 'minmax(0, 1fr)' : '380px minmax(0, 1fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '30px 28px', textAlign: 'center' }}>
         {!alert ? (
           <>

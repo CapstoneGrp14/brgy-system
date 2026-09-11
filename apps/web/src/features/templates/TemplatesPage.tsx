@@ -79,7 +79,7 @@ export function TemplatesPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ ...card, padding: '24px 26px' }}>
         <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{t('➕ Add Document Type')}</h2>
@@ -237,7 +237,7 @@ export function TemplatesPage() {
                 {t(typeLabel(tpl.documentType))} · {tpl.originalFilename} · {t('by {name}', { name: tpl.uploadedBy })}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
               {!tpl.isActive && (
                 <button
                   onClick={() => activate.mutateAsync(tpl.id).then(() => toast(t('✅ Template activated.')))}

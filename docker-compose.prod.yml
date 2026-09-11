@@ -1,0 +1,227 @@
+# Single-EC2 PoC — run with:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# Standalone (not an override): Compose APPENDS `ports` when merging files, so
+# an override cannot un-publish the base file's 0.0.0.0 bindings.
+#
+# Exposure model: host nginx terminates TLS and is the ONLY thing on 80/443.
+# Only api and minio publish, and only on 127.0.0.1 so nginx can reach them.
+# Everything else is reachable solely on the private compose network.
+name: brgy-system
+
+x-app-base: &app-base
+  image: node:22-alpine
+  working_dir: /repo
+  restart: unless-stopped
+  volumes:
+    - .:/repo
+    - node_modules:/repo/node_modules
+
+x-app-env: &app-env
+  NODE_ENV: production            # makes the refresh cookie Secure
+  API_PORT: "3000"
+
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_USER: ${DB_USER}
+  DB_PASSWORD: ${DB_PASSWORD}
+  DB_NAME: ${DB_NAME}
+
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+
+  # ── DNS-facing values ────────────────────────────────────────────────────
+  # Browsers open presigned URLs directly, so these must be the PUBLIC names.
+  # MINIO_ENDPOINT stays internal: the API reaches MinIO over the compose net.
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: "9000"
+  MINIO_USE_SSL: "false"
+  MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+  MINIO_PUBLIC_PORT: "443"
+  MINIO_PUBLIC_USE_SSL: "true"
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  MINIO_BUCKET_UPLOADS: uploads
+  MINIO_BUCKET_DOCUMENTS: documents
+
+  # Public origin of the SPA — used for password-reset / invite links in email.
+  WEB_URL: ${WEB_URL}
+  # ─────────────────────────────────────────────────────────────────────────
+
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+  JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+  JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+
+  GOTENBERG_URL: http://gotenberg:3000
+  OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:1b}
+
+  # Resend in production; SMTP_* are ignored when RESEND_API_KEY is set.
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  MAIL_FROM: ${MAIL_FROM}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    hostname: brgy-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # Console link-backs; harmless while the console stays unexposed.
+      MINIO_BROWSER_REDIRECT_URL: https://${MINIO_PUBLIC_ENDPOINT}/console
+    ports:
+      - "127.0.0.1:9002:9000"   # nginx (host) -> minio.brgy591.site
+      - "127.0.0.1:9003:9001"   # console: reach via SSH tunnel only
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        echo 'waiting for minio…'; sleep 2;
+      done &&
+      mc mb -p local/uploads local/documents &&
+      echo 'MinIO buckets ready'
+      "
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ollama-init:
+    image: ollama/ollama:latest
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: >
+      /bin/sh -c "ollama pull ${OLLAMA_MODEL:-gemma3:1b} && echo 'model ready'"
+
+  api:
+    <<: *app-base
+    command: >
+      sh -c "npm ci &&
+             npm run build -w @brgy/shared &&
+             npm run migration:run -w @brgy/api &&
+             npm run build -w @brgy/api &&
+             npm run start:prod -w @brgy/api"
+    ports:
+      - "127.0.0.1:3000:3000"   # nginx (host) -> brgy591.site/api + /socket.io
+    environment:
+      <<: *app-env
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    depends_on:
+      mysql:     { condition: service_healthy }
+      redis:     { condition: service_healthy }
+      rabbitmq:  { condition: service_healthy }
+      minio:     { condition: service_healthy }
+
+  worker:
+    <<: *app-base
+    # Consumes PDF/OCR/mail jobs. No inbound port — never reachable publicly.
+    command: npm run start:worker:prod -w @brgy/api
+    environment:
+      <<: *app-env
+    depends_on:
+      api:
+        condition: service_healthy   # deps installed, dist built, migrations run
+
+  # One-shot: compiles the SPA into apps/web/dist for host nginx to serve.
+  # Not a server — it builds and exits. Re-run after every code change:
+  #   docker compose -f docker-compose.prod.yml run --rm web-build
+  web-build:
+    <<: *app-base
+    restart: "no"
+    command: >
+      sh -c "npm ci &&
+             npm run build -w @brgy/shared &&
+             npm run build -w @brgy/web &&
+             echo 'SPA built -> apps/web/dist'"
+
+volumes:
+  mysql_data:
+  minio_data:
+  rabbitmq_data:
+  ollama_models:
+  node_modules:

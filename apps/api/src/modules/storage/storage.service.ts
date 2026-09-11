@@ -26,6 +26,10 @@ export class StorageService {
       ...internal,
       endPoint: config.get('MINIO_PUBLIC_ENDPOINT', internal.endPoint),
       port: Number(config.get('MINIO_PUBLIC_PORT', internal.port)),
+      // Behind a TLS-terminating proxy the public address is https even though
+      // the API reaches MinIO over plain http inside the network. Without this
+      // the URL is signed for the wrong scheme/port and the browser gets 403.
+      useSSL: config.get('MINIO_PUBLIC_USE_SSL', String(internal.useSSL)) === 'true',
       // Pin the region so signing never needs to contact the endpoint —
       // the public address is unreachable from inside the container.
       region: 'us-east-1',

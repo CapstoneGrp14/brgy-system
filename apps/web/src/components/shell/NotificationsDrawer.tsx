@@ -47,9 +47,9 @@ export function NotificationsDrawer({ role }: { role: Role }) {
         animation: 'fadeIn .18s ease',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: '1px solid #EDF0F5', position: 'sticky', top: 0, background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '13px 16px', borderBottom: '1px solid #EDF0F5', position: 'sticky', top: 0, background: '#fff' }}>
         <strong style={{ font: '700 14px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Notifications')}</strong>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={toggleSounds}
             title={soundsMuted ? t('Unmute notification sounds') : t('Mute notification sounds')}

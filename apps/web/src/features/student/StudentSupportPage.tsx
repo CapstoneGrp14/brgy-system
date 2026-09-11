@@ -54,14 +54,14 @@ export function StudentSupportPage() {
   const myPrinting = (myRequests ?? []).filter((r) => r.type === RequestType.PRINTING);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 0.95fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '26px 28px' }}>
         <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Free Printing & Laminating')}</h2>
         <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 18px' }}>
           {t('Upload your file to have it printed or laminated at the Barangay Hall — free for student residents.')}
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 130px', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 130px', gap: 12 }}>
           <div>
             <label style={label}>{t('Service Type')}</label>
             <Select

@@ -8,6 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsNotFutureDate } from '../../common/validators';
 
 export class LoginDto {
   @IsEmail()
@@ -30,6 +31,7 @@ export class RegisterDto {
 
   /** Must match the birthdate in the Barangay Census (YYYY-MM-DD). */
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Birthdate must be YYYY-MM-DD' })
+  @IsNotFutureDate()
   birthdate: string;
 
   @IsEmail()

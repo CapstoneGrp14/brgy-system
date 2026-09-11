@@ -66,7 +66,7 @@ export function BookingCalendarPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
           {pending.map((b) => (
             <div key={b.id} style={{ border: '1px solid #E3E8F0', borderRadius: 12, padding: '16px 18px' }}>
               <div style={{ font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>

@@ -94,4 +94,23 @@ export const masterlist: Record<string, string> = {
   // Pagination
   'Showing {from}–{to} of {total} records': 'Ipinapakita ang {from}–{to} sa {total} record',
   '{n} per page': '{n} kada pahina',
+
+  // Edit / delete a census record (staff + admin)
+  'Edit Census Record': 'I-edit ang Census Record',
+  'New Census Record': 'Bagong Census Record',
+  'Edit': 'I-edit',
+  'Delete': 'Tanggalin',
+  ACTIONS: 'AKSYON',
+  'Save Changes': 'I-save ang mga Pagbabago',
+  Cancel: 'Kanselahin',
+  '✅ {name} updated.': '✅ Na-update si {name}.',
+  'Could not save the record.': 'Hindi na-save ang record.',
+  'Full name and address are required.': 'Kailangan ang buong pangalan at address.',
+  'Delete census record?': 'Tanggalin ang census record?',
+  '{name} and their change history will be permanently removed. This cannot be undone.':
+    'Permanenteng matatanggal si {name} at ang history ng mga pagbabago. Hindi na ito maibabalik.',
+  '🗑️ {name} removed from the census.': '🗑️ Natanggal si {name} sa census.',
+  'Could not delete the record.': 'Hindi natanggal ang record.',
+  'Registered residents cannot be deleted — mark inactive instead.':
+    'Hindi matatanggal ang mga rehistradong residente — markahang inactive na lang.',
 };

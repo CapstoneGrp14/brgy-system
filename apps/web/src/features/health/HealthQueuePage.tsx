@@ -43,7 +43,7 @@ export function HealthQueuePage() {
       </p>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={tableFixed(760)}>
+        <table style={tableFixed(900)}>
           <colgroup>
             {cols('25%', '16%', '9%', '13%', '13%', '24%').map((c) => (
               <col key={c.key} style={c.style} />
@@ -88,7 +88,7 @@ export function HealthQueuePage() {
                       <button
                         onClick={() => onAction(r.id)}
                         disabled={advance.isPending}
-                        style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', textAlign: 'left', lineHeight: 1.3 }}
                       >
                         {t(r.actionText)}
                       </button>

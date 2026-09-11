@@ -64,7 +64,7 @@ export function ComplaintsReportPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 18 }}>
         <div style={{ ...card, padding: '18px 20px', minWidth: 0 }}>
           <h3 style={{ margin: '0 0 10px', font: '700 14px Poppins, sans-serif', color: '#1E3A5F' }}>
             {t('Filed vs Resolved (6 months)')}

@@ -30,7 +30,7 @@ export function VerificationSettingsPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '26px 28px' }}>
         <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>
           {t('Accepted Supporting Documents')}
@@ -56,8 +56,8 @@ export function VerificationSettingsPage() {
           {t('Document Types')}
         </h3>
         {(docTypes ?? []).map((dt) => (
-          <div key={dt.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-            <div>
+          <div key={dt.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: dt.isActive ? '#2E3A52' : '#9AA6B7' }}>
                 {t(dt.labelText)} {dt.isActive ? <span style={{ ...pill('green'), marginLeft: 6 }}>{t('Active')}</span> : <span style={{ ...pill('gray'), marginLeft: 6 }}>{t('Disabled')}</span>}
               </div>
@@ -70,7 +70,7 @@ export function VerificationSettingsPage() {
                   .then(() => toast(dt.isActive ? t('🚫 "{name}" disabled.', { name: dt.labelText }) : t('✅ "{name}" enabled.', { name: dt.labelText })))
                   .catch((err: any) => toast(err?.response?.data?.message ?? t('Could not update.')))
               }
-              style={{ background: 'none', border: 'none', color: dt.isActive ? '#C0392B' : '#1F8B4C', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              style={{ background: 'none', border: 'none', color: dt.isActive ? '#C0392B' : '#1F8B4C', fontWeight: 700, fontSize: 13, cursor: 'pointer', lineHeight: 1.3 }}
             >
               {dt.isActive ? t('Disable') : t('Enable')}
             </button>

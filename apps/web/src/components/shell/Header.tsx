@@ -51,7 +51,7 @@ export function Header({ title, icon, user }: { title: string; icon?: string | n
           </button>
         )}
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ margin: 0, font: `700 ${isMobile ? 17 : 21}px Poppins, sans-serif`, color: '#1E3A5F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <h1 style={{ margin: 0, font: `700 ${isMobile ? 17 : 21}px Poppins, sans-serif`, color: '#1E3A5F', lineHeight: 1.25, overflowWrap: 'break-word' }}>
             {icon ? `${icon} ` : ''}
             {t(title)}
           </h1>

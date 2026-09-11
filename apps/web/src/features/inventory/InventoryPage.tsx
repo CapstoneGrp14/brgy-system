@@ -155,7 +155,7 @@ export function InventoryPage() {
           {editFor && (
             <div style={{ font: '700 13px Poppins, sans-serif', color: '#1E3A5F', marginBottom: 12 }}>{t('✏️ Editing “{name}”', { name: newName })}</div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 2fr 1fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)', gap: 12, alignItems: 'end' }}>
             <div>
               <label style={label}>{t('Item Name')}</label>
               <input style={input} placeholder={t('e.g. Wheelchair')} value={newName} onChange={(e) => setNewName(e.target.value)} />
@@ -181,7 +181,7 @@ export function InventoryPage() {
             {t('💊 Medicine & 🩺 medical equipment appear under')} <strong>{t('Health & Medicine')}</strong>{t('; 🪑 event supplies become bookable under')} <strong>{t('My Bookings')}</strong>{t('. Requests auto-close when stock falls to the threshold.')}
             {editFor && ' ' + t('Stock changes here are recorded as a correction in the movement ledger.')}
           </p>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button onClick={doSave} style={saving ? { ...btnBusy, width: 'auto', padding: '10px 20px' } : { ...btnPrimary, width: 'auto', padding: '10px 20px' }}>
               {saving ? t('Saving…') : editFor ? t('Save Changes') : t('Add to Inventory')}
             </button>

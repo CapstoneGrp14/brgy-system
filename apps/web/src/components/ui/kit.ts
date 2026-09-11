@@ -84,7 +84,11 @@ export function pill(kind: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'ora
     borderRadius: 999,
     fontSize: 12,
     fontWeight: 700,
-    whiteSpace: 'nowrap',
+    lineHeight: 1.4,
+    // Filipino labels run longer than the English keys. Wrapping inside the
+    // pill keeps it within its cell; nowrap made it overflow into the next one.
+    maxWidth: '100%',
+    overflowWrap: 'break-word',
     ...colors[kind],
   };
 }
@@ -102,9 +106,12 @@ export const th: CSSProperties = {
   letterSpacing: '.06em',
   color: '#7E8CA3',
   borderBottom: '1px solid #E9EDF4',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
+  // Translated headers are longer; wrap them instead of cutting them off.
+  // `break-word` (not `anywhere`) so a header wraps between words rather than
+  // splitting a word down the middle.
+  lineHeight: 1.3,
+  verticalAlign: 'bottom',
+  overflowWrap: 'break-word',
 };
 
 export const td: CSSProperties = {
@@ -113,7 +120,7 @@ export const td: CSSProperties = {
   color: '#2E3A52',
   borderBottom: '1px solid #F0F3F8',
   verticalAlign: 'middle',
-  overflowWrap: 'anywhere',
+  overflowWrap: 'break-word',
 };
 
 export const tableFixed = (minWidth: number): CSSProperties => ({

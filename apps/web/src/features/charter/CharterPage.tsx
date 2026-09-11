@@ -76,7 +76,7 @@ export function CharterPage() {
             </button>
           )}
           {isAdmin && editing && (
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={onSave} style={save.isPending ? { ...btnBusy, width: 'auto', padding: '9px 16px' } : { ...btnPrimary, width: 'auto', padding: '9px 16px', fontSize: 12.5 }}>
                 {save.isPending ? t('Saving…') : t('💾 Save Charter')}
               </button>
@@ -191,7 +191,7 @@ export function CharterPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {view.services.map((s, i) => (
             <div key={i} style={{ ...card, padding: '20px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
                 <span style={{ font: '700 13px Poppins, sans-serif', color: '#7E8CA3' }}>{t('SERVICE #{n}', { n: i + 1 })}</span>
                 <button onClick={() => setDraft((d) => d && { ...d, services: d.services.filter((_, j) => j !== i) })} style={smallBtn(true)}>
                   {t('🗑️ Remove')}

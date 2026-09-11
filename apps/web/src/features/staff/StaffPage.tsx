@@ -72,7 +72,7 @@ export function StaffPage() {
   const pendingInvites = (data?.invites ?? []).filter((i) => !i.acceptedAt && !i.revokedAt);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '26px 28px' }}>
         <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Invite Staff Member')}</h2>
         <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 18px' }}>
@@ -109,7 +109,7 @@ export function StaffPage() {
               <strong>{promotable}</strong> {t('already has a resident account with this email. Promote that account to')}{' '}
               <strong>{form.role === 'ADMIN' ? t('Admin') : t('Employee')}</strong> {t('instead? They keep the same login and their resident portal (dual role).')}
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={doPromote} disabled={promote.isPending} style={{ background: '#F5A81C', color: '#16324F', border: 'none', borderRadius: 8, padding: '9px 14px', font: '700 12.5px Poppins, sans-serif', cursor: 'pointer' }}>
                 {promote.isPending ? t('Promoting…') : t('⬆️ Promote to {role}', { role: form.role === 'ADMIN' ? t('Admin') : t('Employee') })}
               </button>
@@ -135,7 +135,7 @@ export function StaffPage() {
                   {s.position ? `${s.position} · ` : ''}{s.email}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={pill(s.role === 'ADMIN' ? 'purple' : 'green')}>{s.role === 'ADMIN' ? t('Admin') : t('Employee')}</span>
                 {s.id !== me?.id && (
                   <button

@@ -1,14 +1,17 @@
-import { CensusCategory, Role } from '@brgy/shared';
+import { CensusCategory, Role, type MasterlistRow } from '@brgy/shared';
 import { useState } from 'react';
 import {
   downloadMasterlistCsv,
   useAddRecord,
   useCensusHistory,
+  useDeleteRecord,
   useImportCsv,
   useMasterlist,
+  useUpdateRecord,
 } from '../../api/masterlist';
 import { card, cols, input, label, pill, tableFixed, td, th } from '../../components/ui/kit';
-import { DatePicker } from '../../components/ui/DatePicker';
+import { confirmDialog } from '../../components/ui/ConfirmDialog';
+import { DatePicker, todayString } from '../../components/ui/DatePicker';
 import { FileDropzone } from '../../components/ui/FileDropzone';
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
@@ -39,6 +42,8 @@ export function MasterlistPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
   const [showAdd, setShowAdd] = useState(false);
+  /** Census record being edited — the add panel doubles as the edit panel. */
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [importMode, setImportMode] = useState<'append' | 'refresh' | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -46,28 +51,78 @@ export function MasterlistPage() {
   const { data: historyRows, isLoading: historyLoading } = useCensusHistory(expandedId);
   const { data } = useMasterlist({ search, category, account, status, page, pageSize });
   const addRecord = useAddRecord();
+  const updateRecord = useUpdateRecord();
+  const deleteRecord = useDeleteRecord();
   const importCsv = useImportCsv();
+  const saving = addRecord.isPending || updateRecord.isPending;
 
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const startEdit = (r: MasterlistRow) => {
+    setEditingId(r.id);
+    setShowAdd(true);
+    setForm({
+      fullName: r.fullName,
+      birthdate: r.birthdate ?? '',
+      address: r.address,
+      purok: r.purok ?? '',
+      category: r.category,
+      lguEligibility: r.lguEligibility ?? '',
+      householdCode: r.householdCode ?? '',
+    });
+  };
+
   const submitAdd = async () => {
+    if (saving) return;
+    if (!form.fullName.trim() || !form.address.trim()) {
+      toast(t('Full name and address are required.'));
+      return;
+    }
+    const payload = {
+      fullName: form.fullName,
+      birthdate: form.birthdate || undefined,
+      address: form.address,
+      purok: form.purok || undefined,
+      category: form.category,
+      lguEligibility: form.lguEligibility || undefined,
+      householdCode: form.householdCode || undefined,
+    };
     try {
-      await addRecord.mutateAsync({
-        fullName: form.fullName,
-        birthdate: form.birthdate || undefined,
-        address: form.address,
-        purok: form.purok || undefined,
-        category: form.category,
-        lguEligibility: form.lguEligibility || undefined,
-        householdCode: form.householdCode || undefined,
-      });
-      toast(t('✅ {name} added to the census.', { name: form.fullName }));
-      setForm(emptyForm);
-      setShowAdd(false);
+      if (editingId) {
+        await updateRecord.mutateAsync({ id: editingId, ...payload });
+        toast(t('✅ {name} updated.', { name: form.fullName }));
+      } else {
+        await addRecord.mutateAsync(payload);
+        toast(t('✅ {name} added to the census.', { name: form.fullName }));
+      }
+      closeForm();
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? t('Could not add the record.'));
+      toast(err?.response?.data?.message ?? t('Could not save the record.'));
+    }
+  };
+
+  const onDelete = async (r: MasterlistRow) => {
+    const ok = await confirmDialog({
+      title: t('Delete census record?'),
+      message: t('{name} and their change history will be permanently removed. This cannot be undone.', { name: r.fullName }),
+      confirmText: t('Delete'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await deleteRecord.mutateAsync(r.id);
+      toast(t('🗑️ {name} removed from the census.', { name: r.fullName }));
+      if (editingId === r.id) closeForm();
+    } catch (err: any) {
+      toast(err?.response?.data?.message ?? t('Could not delete the record.'));
     }
   };
 
@@ -116,7 +171,15 @@ export function MasterlistPage() {
               {t('⬇ Download CSV')}
             </button>
           )}
-          <button onClick={() => setShowAdd((v) => !v)} style={{ background: '#1E3A5F', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <button
+            onClick={() => {
+              // Open a blank form; if an edit is in progress this swaps to "add".
+              if (showAdd && !editingId) return closeForm();
+              setForm(emptyForm);
+              setEditingId(null);
+              setShowAdd(true);
+            }}
+            style={{ background: '#1E3A5F', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             {t('+ Add Resident')}
           </button>
         </div>
@@ -167,10 +230,13 @@ export function MasterlistPage() {
       </div>
 
       {showAdd && (
-        <div style={{ background: '#F7FAFF', border: '1px solid #DCE7F7', borderRadius: 10, padding: '16px 18px', marginTop: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ background: '#F7FAFF', border: `1px solid ${editingId ? '#F2DFA4' : '#DCE7F7'}`, borderRadius: 10, padding: '16px 18px', marginTop: 16 }}>
+          <div style={{ font: '700 13.5px Poppins, sans-serif', color: '#1E3A5F', marginBottom: 12 }}>
+            {editingId ? t('Edit Census Record') : t('New Census Record')}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
             <div><label style={label}>{t('Full Name')}</label><input style={input} value={form.fullName} onChange={set('fullName')} /></div>
-            <div><label style={label}>{t('Birthdate')}</label><DatePicker value={form.birthdate} onChange={(v) => setForm((f) => ({ ...f, birthdate: v }))} /></div>
+            <div><label style={label}>{t('Birthdate')}</label><DatePicker value={form.birthdate} onChange={(v) => setForm((f) => ({ ...f, birthdate: v }))} maxDate={todayString()} maxYear={new Date().getFullYear()} /></div>
             <div><label style={label}>{t('Category')}</label>
               <Select
                 value={form.category}
@@ -182,16 +248,21 @@ export function MasterlistPage() {
             <div><label style={label}>{t('Purok')}</label><input style={input} placeholder={t('e.g., Purok 3')} value={form.purok} onChange={set('purok')} /></div>
             <div><label style={label}>{t('Household Code (blank = new household)')}</label><input style={input} placeholder={t('e.g., HH-0002')} value={form.householdCode} onChange={set('householdCode')} /></div>
           </div>
-          <button onClick={submitAdd} style={{ marginTop: 14, background: '#27AE60', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer' }}>
-            {addRecord.isPending ? t('Saving…') : t('Save Record')}
-          </button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <button onClick={submitAdd} disabled={saving} style={{ background: '#27AE60', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', font: '700 13px Poppins, sans-serif', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? t('Saving…') : editingId ? t('Save Changes') : t('Save Record')}
+            </button>
+            <button onClick={closeForm} style={{ background: '#fff', color: '#64748B', border: '1.5px solid #DCE3EE', borderRadius: 8, padding: '9px 16px', font: '700 13px Poppins, sans-serif', cursor: 'pointer' }}>
+              {t('Cancel')}
+            </button>
+          </div>
         </div>
       )}
 
       <div style={{ overflowX: 'auto', marginTop: 8 }}>
-        <table style={tableFixed(980)}>
+        <table style={tableFixed(1320)}>
           <colgroup>
-            {cols('9%', '16%', '12%', '17%', '13%', '11%', '12%', '10%').map((c) => (
+            {cols('9%', '14%', '12%', '14%', '11%', '10%', '10%', '9%', '11%').map((c) => (
               <col key={c.key} style={c.style} />
             ))}
           </colgroup>
@@ -205,6 +276,7 @@ export function MasterlistPage() {
               <th style={th}>{t('QUEUE STATUS')}</th>
               <th style={th}>{t('LGU ELIGIBILITY')}</th>
               <th style={th}>{t('ACCOUNT')}</th>
+              <th style={th}>{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody>
@@ -230,7 +302,7 @@ export function MasterlistPage() {
                     {r.fullName}
                     {!r.isActive && <span style={{ ...pill('gray'), marginLeft: 8 }}>{t('Inactive')}</span>}
                   </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                  <td style={td}>
                     {r.birthdate ? (
                       <>
                         {new Date(r.birthdate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -257,10 +329,30 @@ export function MasterlistPage() {
                       <span style={{ color: '#9AA6B7', fontSize: 12.5 }}>{t('No account')}</span>
                     )}
                   </td>
+                  <td style={td}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(r)}
+                        style={{ background: 'none', border: 'none', color: '#1E3A5F', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        {t('Edit')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(r)}
+                        disabled={deleteRecord.isPending}
+                        title={r.registered ? t('Registered residents cannot be deleted — mark inactive instead.') : t('Delete')}
+                        style={{ background: 'none', border: 'none', color: r.registered ? '#C3CBD8' : '#C0392B', fontWeight: 700, fontSize: 12.5, cursor: r.registered ? 'not-allowed' : 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        {t('Delete')}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
                 {expanded && (
                   <tr key={`${r.id}-history`}>
-                    <td colSpan={8} style={{ padding: 0, borderBottom: '1px solid #F0F3F8' }}>
+                    <td colSpan={9} style={{ padding: 0, borderBottom: '1px solid #F0F3F8' }}>
                       <div style={{ background: '#F8FAFD', padding: '14px 20px 14px 46px' }}>
                         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: '#7E8CA3', marginBottom: 8 }}>
                           {t('PREVIOUS DATA — {name}', { name: r.fullName.toUpperCase() })}

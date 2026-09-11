@@ -3,10 +3,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -27,6 +29,7 @@ import {
   Min,
 } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { IsNotFutureDate } from '../../common/validators';
 import { MasterlistService } from './masterlist.service';
 
 class AddRecordDto {
@@ -37,6 +40,7 @@ class AddRecordDto {
 
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Birthdate must be YYYY-MM-DD' })
+  @IsNotFutureDate()
   birthdate?: string;
 
   @IsString()
@@ -128,6 +132,20 @@ export class MasterlistController {
     if (!file) throw new BadRequestException('Attach a CSV file.');
     const importMode = mode === 'refresh' ? 'refresh' : 'append';
     return this.masterlist.importCsv(file.buffer.toString('utf8'), user, importMode);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddRecordDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.masterlist.updateRecord(id, dto, user);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.masterlist.deleteRecord(id, user);
   }
 
   @Get(':id/history')

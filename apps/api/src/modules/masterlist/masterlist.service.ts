@@ -1,5 +1,5 @@
 import { CensusCategory, CensusHistoryRow, MasterlistResponse, MasterlistRow } from '@brgy/shared';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { RequestUser } from '../../common/decorators';
@@ -203,6 +203,91 @@ export class MasterlistService {
       });
     }
     return (await this.toRows([record]))[0];
+  }
+
+  /**
+   * Staff edit of a single census record. Snapshots the old values first so the
+   * history accordion shows what changed, then keeps any linked resident
+   * profile in sync (the census is the source of truth for address/purok).
+   */
+  async updateRecord(id: string, input: RecordInput, actor: RequestUser): Promise<MasterlistRow> {
+    const existing = await this.census.findOne({ where: { id }, relations: { household: true } });
+    if (!existing) throw new NotFoundException('Census record not found.');
+
+    // Another person must not already hold this name + birthdate.
+    const dup = await this.census
+      .createQueryBuilder('c')
+      .where('LOWER(TRIM(c.full_name)) = LOWER(:name)', { name: input.fullName.trim() })
+      .andWhere('c.id != :id', { id })
+      .andWhere(input.birthdate ? 'c.birthdate = :bd' : '1=1', { bd: input.birthdate })
+      .getOne();
+    if (dup) throw new BadRequestException(`${input.fullName} is already in the census.`);
+
+    const household = await this.resolveHousehold(
+      input.householdCode,
+      input.address,
+      input.purok ?? null,
+    );
+    await this.snapshot(existing, 'Edited by staff', `${actor.fullName} (Staff)`);
+    await this.census.update(
+      { id },
+      {
+        fullName: input.fullName.trim(),
+        birthdate: input.birthdate ?? null,
+        address: input.address,
+        purok: input.purok ?? null,
+        category: input.category,
+        lguEligibility: input.lguEligibility ?? null,
+        householdId: household.id,
+      },
+    );
+    await this.profiles.update(
+      { censusRecordId: id },
+      { address: input.address, purok: input.purok ?? null },
+    );
+
+    this.audit.log({
+      actorLabel: `${actor.fullName} (Staff)`,
+      actorId: actor.id,
+      action: 'Edited Census Record',
+      target: `${input.fullName.trim()} · ${household.code}`,
+    });
+    const updated = await this.census.findOne({ where: { id }, relations: { household: true } });
+    return (await this.toRows([updated as CensusRecord]))[0];
+  }
+
+  /**
+   * Permanently remove a census record and its change history.
+   *
+   * Refused while a portal account is linked: the profile's census_record_id is
+   * ON DELETE SET NULL, so deleting would silently strip the resident's census
+   * link (and their verification basis) while leaving the account able to sign
+   * in. Deactivating is the correct move there — it cascades to the account.
+   */
+  async deleteRecord(id: string, actor: RequestUser): Promise<{ id: string }> {
+    const record = await this.census.findOne({ where: { id }, relations: { household: true } });
+    if (!record) throw new NotFoundException('Census record not found.');
+
+    const linked = await this.profiles.findOne({
+      where: { censusRecordId: id },
+      relations: { user: true },
+    });
+    if (linked) {
+      throw new BadRequestException(
+        `${record.fullName} has a registered portal account (${linked.user?.email ?? 'linked'}). Mark the record inactive instead, or remove the account first.`,
+      );
+    }
+
+    await this.history.delete({ censusRecordId: id });
+    await this.census.remove(record);
+
+    this.audit.log({
+      actorLabel: `${actor.fullName} (Staff)`,
+      actorId: actor.id,
+      action: 'Deleted Census Record',
+      target: `${record.fullName} · ${record.household?.code ?? '—'}`,
+    });
+    return { id };
   }
 
   /**

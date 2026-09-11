@@ -124,7 +124,7 @@ export function PostAnnouncementPage() {
   const showExistingPhoto = !!existingPhotoUrl && !removePhoto && !photo;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '24px 26px', ...(editingId ? { boxShadow: 'inset 4px 0 0 #F5A81C' } : {}) }}>
         <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>
           {editingId ? t('Edit Announcement') : isAdmin ? t('Broadcast Center') : t('Post Announcement')}
@@ -174,7 +174,7 @@ export function PostAnnouncementPage() {
         />
         <label style={label}>{t('Dashboard Banner Photo (optional)')}</label>
         {showExistingPhoto ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1.5px solid #DCE3EE', borderRadius: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 12px', border: '1.5px solid #DCE3EE', borderRadius: 10 }}>
             <img src={existingPhotoUrl!} alt="" style={{ width: 64, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
             <span style={{ fontSize: 12.5, color: '#64748B', flex: 1 }}>{t('Current banner photo attached.')}</span>
             <button
@@ -253,6 +253,7 @@ export function PostAnnouncementPage() {
               display: 'flex',
               justifyContent: 'space-between',
               gap: 12,
+              flexWrap: 'wrap',
               alignItems: 'flex-start',
               ...(editingId === a.id ? { background: '#FFFBF2', margin: '0 -8px', padding: '11px 8px', borderRadius: 8 } : {}),
             }}

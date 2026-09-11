@@ -80,7 +80,7 @@ export function ResidentComplaintsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 0.95fr', gap: 22, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 22, alignItems: 'start' }}>
         {/* File a complaint */}
         <div style={{ ...card, padding: '26px 28px' }}>
           <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>
@@ -90,7 +90,7 @@ export function ResidentComplaintsPage() {
             {t('Your complaint enters Katarungang Pambarangay mediation with a 20-day clock.')}
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
             <div>
               <label style={label}>{t('Contact Number')}</label>
               <input style={{ ...input, marginBottom: 12 }} placeholder={t('e.g., 09123456789')} value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
@@ -145,8 +145,8 @@ export function ResidentComplaintsPage() {
             {myCctv.length > 0 && (
               <div style={{ marginTop: 14 }}>
                 {myCctv.map((r) => (
-                  <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderTop: '1px solid #F0F3F8', fontSize: 12.5 }}>
-                    <span style={{ color: '#64748B' }}>{t('📷 Filed {date}', { date: fmtDateLong(r.filedAt) })}</span>
+                  <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '8px 0', borderTop: '1px solid #F0F3F8', fontSize: 12.5 }}>
+                    <span style={{ color: '#64748B', minWidth: 0 }}>{t('📷 Filed {date}', { date: fmtDateLong(r.filedAt) })}</span>
                     <span style={pill(STATUS_PILL[r.status].kind)}>{t(STATUS_PILL[r.status].labelText)}</span>
                   </div>
                 ))}

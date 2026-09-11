@@ -132,6 +132,7 @@ export function Select({
                   justifyContent: 'space-between',
                   gap: 10,
                   padding: compact ? '8px 10px' : '10px 11px',
+                  whiteSpace: 'normal',
                   border: 'none',
                   borderRadius: 7,
                   background: isSelected ? '#EAF1FC' : 'transparent',
@@ -143,7 +144,7 @@ export function Select({
                   textAlign: 'left',
                 }}
               >
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ minWidth: 0, lineHeight: 1.35, overflowWrap: 'break-word' }}>
                   {o.labelText}
                 </span>
                 {isSelected && <span style={{ color: '#F5A81C', flexShrink: 0 }}>✓</span>}

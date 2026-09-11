@@ -101,7 +101,7 @@ export function StaffComplaintsPage() {
 
       {showBlotter && (
         <div style={{ background: '#F7FAFF', border: '1px solid #DCE7F7', borderRadius: 10, padding: '16px 18px', marginTop: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 1fr)', gap: 12 }}>
             <div><label style={label}>{t('Case Title')}</label><input style={input} placeholder={t('e.g., Turnover of Mendicants')} value={blotter.caseTitle} onChange={(e) => setBlotter((b) => ({ ...b, caseTitle: e.target.value }))} /></div>
             <div><label style={label}>{t('Category')}</label>
               <Select value={blotter.category} onChange={(v) => setBlotter((b) => ({ ...b, category: v }))} options={COMPLAINT_CATEGORIES.map((c) => ({ value: c, labelText: t(c) }))} />
@@ -187,14 +187,14 @@ export function StaffComplaintsPage() {
                   </td>
                   <td style={td}><span style={pill(meta.kind)}>{t(meta.labelText)}</span></td>
                   <td style={td}>
-                    <div style={{ display: 'flex', gap: 12, whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       {actions.length === 0 && <span style={{ color: '#9AA6B7', fontSize: 13 }}>—</span>}
                       {actions.map((a) => (
                         <button
                           key={a.next}
                           onClick={() => onAdvance(c.id, a.next, a.actionText, c.caseTitle)}
                           disabled={advance.isPending}
-                          style={{ background: 'none', border: 'none', color: a.next === 'CFA_ISSUED' ? '#C0392B' : '#2E66D0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                          style={{ background: 'none', border: 'none', color: a.next === 'CFA_ISSUED' ? '#C0392B' : '#2E66D0', fontWeight: 700, fontSize: 13, cursor: 'pointer' , flexShrink: 0 }}
                         >
                           {t(a.actionText)}
                         </button>
@@ -222,7 +222,7 @@ export function StaffComplaintsPage() {
             </div>
           </DetailRow>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '0 18px' }}>
             <DetailRow labelText={t('Filing Type')}>
               {detail.source === ComplaintSource.MANUAL_BLOTTER
                 ? t('Manual Blotter (Staff-encoded)')

@@ -71,7 +71,7 @@ export function ArtaReportPage() {
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={tableFixed(920)}>
+        <table style={tableFixed(1000)}>
           <colgroup>
             {cols('24%', '15%', '15%', '10%', '12%', '12%', '12%').map((c) => (
               <col key={c.key} style={c.style} />

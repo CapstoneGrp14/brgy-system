@@ -16,3 +16,5 @@ docker/data/
 .idea/
 .vscode/
 docs/
+
+deploy/

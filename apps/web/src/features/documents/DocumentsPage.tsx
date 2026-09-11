@@ -53,7 +53,7 @@ export function DocumentsPage() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 0.95fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 22, alignItems: 'start' }}>
       <div style={{ ...card, padding: '26px 28px' }}>
         <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Online Request Form')}</h2>
         <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 18px' }}>
@@ -138,7 +138,7 @@ export function DocumentsPage() {
                     : `${t('Filed {date}', { date: fmtDateLong(r.filedAt) })} · ${chip.text}`}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {r.hasDocument && !r.pickup && (
                   <button
                     onClick={download}

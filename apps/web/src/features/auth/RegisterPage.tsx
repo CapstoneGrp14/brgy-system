@@ -2,7 +2,7 @@ import { useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { register } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, input, label } from '../../components/ui/kit';
-import { DatePicker } from '../../components/ui/DatePicker';
+import { DatePicker, todayString } from '../../components/ui/DatePicker';
 import { Modal } from '../../components/ui/Modal';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 import { TermsContent } from './TermsContent';
@@ -56,23 +56,24 @@ export function RegisterPage() {
     >
       <label style={label}>{t('Full Name (as registered in the census)')}</label>
       <input style={{ ...input, marginBottom: 12 }} placeholder={t('e.g., Juan Dela Cruz')} value={form.fullName} onChange={set('fullName')} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, alignItems: 'end' }}>
         <div>
           <label style={label}>{t('Birthdate')}</label>
           <DatePicker
             value={form.birthdate}
             onChange={(v) => setForm((f) => ({ ...f, birthdate: v }))}
             placeholder={t('As registered in census')}
+            maxDate={todayString()}
+            maxYear={new Date().getFullYear()}
             style={{ marginBottom: 12 }}
           />
         </div>
         <div>
-          {/* short label — the long form wraps at half-width and misaligns the row */}
-          <label style={{ ...label, whiteSpace: 'nowrap' }}>{t('Mobile No. (optional)')}</label>
+          <label style={label}>{t('Mobile No. (optional)')}</label>
           <input style={{ ...input, marginBottom: 12 }} placeholder="09XXXXXXXXX" value={form.phone} onChange={set('phone')} />
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
         <div>
           <label style={label}>{t('Email')}</label>
           <input style={{ ...input, marginBottom: 12 }} placeholder="you@email.com" value={form.email} onChange={set('email')} />

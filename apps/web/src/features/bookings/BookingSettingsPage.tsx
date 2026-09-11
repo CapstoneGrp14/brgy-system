@@ -30,7 +30,7 @@ export function BookingSettingsPage() {
   const activeSlots = (data?.slots ?? []).filter((s) => s.isActive);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr', gap: 22, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1.1fr) minmax(0, 0.9fr)', gap: 22, alignItems: 'start' }}>
       {/* Facilities */}
       <div style={{ ...card, padding: '24px 26px' }}>
         <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Bookable Facilities & Equipment')}</h2>
@@ -134,8 +134,8 @@ export function BookingSettingsPage() {
         </div>
 
         {(data?.slots ?? []).map((s) => (
-          <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: '1px solid #F0F3F8' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: s.isActive ? '#2E3A52' : '#9AA6B7' }}>
+          <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid #F0F3F8' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, minWidth: 0, color: s.isActive ? '#2E3A52' : '#9AA6B7' }}>
               🕐 {s.label} {s.isOffPeak && <span style={pill('green')}>{t('Off-peak')}</span>}{' '}
               {!s.isActive && <span style={pill('gray')}>{t('Disabled')}</span>}
             </div>

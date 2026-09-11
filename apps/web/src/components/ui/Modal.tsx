@@ -51,6 +51,7 @@ export function Modal({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: 12,
             padding: '18px 24px',
             borderBottom: '1px solid #EDF0F5',
             position: 'sticky',
@@ -59,10 +60,10 @@ export function Modal({
             borderRadius: '14px 14px 0 0',
           }}
         >
-          <h3 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{title}</h3>
+          <h3 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F', minWidth: 0, lineHeight: 1.35, overflowWrap: 'break-word' }}>{title}</h3>
           <button
             onClick={onClose}
-            style={{ background: '#F4F6FA', border: '1px solid #E3E8F0', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', color: '#64748B', fontSize: 14 }}
+            style={{ background: '#F4F6FA', border: '1px solid #E3E8F0', borderRadius: 8, width: 30, height: 30, flexShrink: 0, cursor: 'pointer', color: '#64748B', fontSize: 14 }}
           >
             ✕
           </button>

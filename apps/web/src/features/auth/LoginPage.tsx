@@ -67,7 +67,20 @@ export function LoginPage() {
             <div style={{ position: 'absolute', left: -100, bottom: -140, width: 380, height: 380, borderRadius: '50%', background: 'rgba(255,255,255,.04)' }} />
           </>
         )}
-        <div style={{ font: `800 ${isMobile ? 42 : 64}px Poppins, sans-serif`, color: '#F5A81C', lineHeight: 1 }}>591</div>
+        <img
+          src="/brgy591-logo.jpeg"
+          alt="Barangay 591"
+          style={{
+            width: isMobile ? 64 : 96,
+            height: isMobile ? 64 : 96,
+            borderRadius: '50%',
+            objectFit: 'cover',
+            // The seal sits on a navy panel; a thin gold ring keeps its white
+            // background from reading as a hard square edge.
+            border: '2px solid rgba(245,168,28,.55)',
+            boxShadow: '0 6px 18px rgba(0,0,0,.28)',
+          }}
+        />
         <div style={{ fontSize: 12, letterSpacing: '.18em', color: '#93A7C0', fontWeight: 700, marginTop: 10 }}>
           {t('BARANGAY E-SERVICES PORTAL')}
         </div>
@@ -137,7 +150,7 @@ export function LoginPage() {
             autoComplete="current-password"
           />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#33415E', cursor: 'pointer' }}>
               <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
               {t('Remember me')}

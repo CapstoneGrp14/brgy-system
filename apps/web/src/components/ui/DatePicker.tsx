@@ -11,6 +11,13 @@ const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const toDateString = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
+/** Today in the browser's own timezone, as YYYY-MM-DD. Pass to `maxDate` to
+ *  bar future dates (birthdates, "date filed", etc.). */
+export function todayString(): string {
+  const d = new Date();
+  return toDateString(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 function parseValue(value: string): { date: string; time: string } {
   if (!value) return { date: '', time: '' };
   const [date, time = ''] = value.split('T');
@@ -35,6 +42,7 @@ export function DatePicker({
   placeholder,
   minYear = 1900,
   maxYear = new Date().getFullYear() + 2,
+  maxDate,
   style,
 }: {
   value: string;
@@ -43,6 +51,8 @@ export function DatePicker({
   placeholder?: string;
   minYear?: number;
   maxYear?: number;
+  /** Latest selectable day (YYYY-MM-DD). Later days render disabled. */
+  maxDate?: string;
   style?: CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
@@ -51,6 +61,9 @@ export function DatePicker({
   const t = useT();
 
   const today = new Date();
+  const maxTs = maxDate ? new Date(maxDate + 'T00:00').getTime() : null;
+  const maxD = maxDate ? new Date(maxDate + 'T00:00') : null;
+  const effMaxYear = maxD ? Math.min(maxYear, maxD.getFullYear()) : maxYear;
   const selected = date ? new Date(date + 'T00:00') : null;
   const [viewYear, setViewYear] = useState(selected?.getFullYear() ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected?.getMonth() ?? today.getMonth());
@@ -83,7 +96,9 @@ export function DatePicker({
 
   const shiftMonth = (delta: number) => {
     const next = new Date(viewYear, viewMonth + delta, 1);
-    if (next.getFullYear() < minYear || next.getFullYear() > maxYear) return;
+    if (next.getFullYear() < minYear || next.getFullYear() > effMaxYear) return;
+    // Don't page into a month that lies entirely beyond maxDate.
+    if (maxD && next > new Date(maxD.getFullYear(), maxD.getMonth(), 1)) return;
     setViewYear(next.getFullYear());
     setViewMonth(next.getMonth());
   };
@@ -107,7 +122,7 @@ export function DatePicker({
     cursor: 'pointer',
   };
 
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => maxYear - i);
+  const years = Array.from({ length: effMaxYear - minYear + 1 }, (_, i) => effMaxYear - i);
 
   return (
     <div ref={rootRef} style={{ position: 'relative', ...style }}>
@@ -193,27 +208,30 @@ export function DatePicker({
               const cellDate = toDateString(viewYear, viewMonth, day);
               const isSelected = cellDate === date;
               const isToday = cellDate === toDateString(today.getFullYear(), today.getMonth(), today.getDate());
+              const isBlocked = maxTs !== null && new Date(cellDate + 'T00:00').getTime() > maxTs;
               return (
                 <button
                   key={day}
                   type="button"
+                  disabled={isBlocked}
                   onClick={() => {
+                    if (isBlocked) return;
                     emit(cellDate, time);
                     if (!withTime) setOpen(false);
                   }}
                   style={{
                     height: 32,
-                    border: isToday && !isSelected ? '1.5px solid #F5A81C' : 'none',
+                    border: isToday && !isSelected && !isBlocked ? '1.5px solid #F5A81C' : 'none',
                     borderRadius: 8,
                     background: isSelected ? '#1E3A5F' : 'transparent',
-                    color: isSelected ? '#fff' : '#2E3A52',
+                    color: isBlocked ? '#C8D0DC' : isSelected ? '#fff' : '#2E3A52',
                     fontSize: 13,
                     fontWeight: isSelected || isToday ? 700 : 500,
-                    cursor: 'pointer',
+                    cursor: isBlocked ? 'not-allowed' : 'pointer',
                     fontFamily: 'inherit',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = '#EAF1FC';
+                    if (!isSelected && !isBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#EAF1FC';
                   }}
                   onMouseLeave={(e) => {
                     if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';

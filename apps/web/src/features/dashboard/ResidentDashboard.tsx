@@ -77,6 +77,7 @@ export function ResidentDashboard() {
             display: 'flex',
             alignItems: 'center',
             gap: 14,
+            flexWrap: 'wrap',
             cursor: 'pointer',
             borderRadius: 12,
             padding: bannerPost.photoUrl ? '10px 20px 10px 10px' : '15px 20px',
@@ -153,7 +154,7 @@ export function ResidentDashboard() {
           </h3>
           <span style={{ fontSize: 12, color: '#8A97AB' }}>{t('3-day simple · 7-day complex · 20-day technical')}</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginTop: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))', gap: 16, marginTop: 16 }}>
           {active.length === 0 && (
             <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>{t('No active requests — file one from Quick Actions below.')}</p>
           )}
@@ -182,7 +183,7 @@ export function ResidentDashboard() {
       {/* Quick actions */}
       <div>
         <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Quick Actions')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
           {QUICK_ACTIONS.map((q) => {
             const isLocked = !verified;
             return (
@@ -206,10 +207,10 @@ export function ResidentDashboard() {
       </div>
 
       {/* Recent requests + bookings */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20 }}>
         <div style={{ ...card, padding: '22px 26px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('My Recent Requests')}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F', minWidth: 0 }}>{t('My Recent Requests')}</h3>
             <button
               onClick={() => setAllReqOpen(true)}
               style={{ background: 'none', border: 'none', padding: 0, font: '700 13px Poppins, sans-serif', color: '#2E66D0', cursor: 'pointer' }}
@@ -221,7 +222,7 @@ export function ResidentDashboard() {
           {recent.map((r) => {
             const status = STATUS_PILL[r.status];
             return (
-              <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#2E3A52', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {REQUEST_ICON[r.type] ?? '📄'} {r.title}
@@ -235,15 +236,15 @@ export function ResidentDashboard() {
         </div>
 
         <div style={{ ...card, padding: '22px 26px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('My Upcoming Bookings')}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ margin: 0, font: '700 15px Poppins, sans-serif', color: '#1E3A5F', minWidth: 0 }}>{t('My Upcoming Bookings')}</h3>
             <Link to="/resident/bookings" style={{ fontSize: 13, fontWeight: 700 }}>{t('+ New Booking')}</Link>
           </div>
           {upcomingBookings.length === 0 && (
             <p style={{ fontSize: 13.5, color: '#8A97AB' }}>{t('No upcoming bookings — reserve a facility or equipment.')}</p>
           )}
           {upcomingBookings.map((b) => (
-            <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.08em', color: '#7E8CA3' }}>
                   {b.facilityName.split(' (')[0].toUpperCase()}
@@ -274,7 +275,7 @@ export function ResidentDashboard() {
                 const status = STATUS_PILL[r.status];
                 const chip = deadlineChip(r);
                 return (
-                  <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#2E3A52' }}>
                         {REQUEST_ICON[r.type] ?? '📄'} {r.title}
