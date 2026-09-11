@@ -176,7 +176,7 @@ services:
   api:
     <<: *app-base
     command: >
-      sh -c "npm ci &&
+      sh -c "npm ci --include=dev &&
              npm run build -w @brgy/shared &&
              npm run migration:run -w @brgy/api &&
              npm run build -w @brgy/api &&
@@ -218,7 +218,9 @@ services:
     # exactly what tripped the "network not found" error.
     profiles: ["build"]
     command: >
-      sh -c "npm ci &&
+      sh -c "test -x node_modules/.bin/tsc || {
+               echo 'ERROR: dependencies missing. Start the api service first —';
+               echo 'it populates the shared node_modules volume.'; exit 1; };
              npm run build -w @brgy/shared &&
              npm run build -w @brgy/web &&
              echo 'SPA built -> apps/web/dist'"

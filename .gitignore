@@ -7,6 +7,10 @@ coverage/
 .env
 .env.local
 .env.*.local
+# Real production secrets (DB/RabbitMQ/MinIO passwords, JWT signing keys).
+.env.production
+# ...but keep the fill-in-the-blanks template tracked.
+!.env.production.example
 
 # runtime data
 docker/data/
@@ -17,4 +21,9 @@ docker/data/
 .vscode/
 docs/
 
-deploy/
+# `deploy/*` (not `deploy/`): git cannot re-include anything whose parent
+# directory is excluded, so excluding the CONTENTS is what allows the nginx
+# configs to stay tracked while certs/ stays out.
+deploy/*
+!deploy/nginx/
+deploy/nginx/certs/
