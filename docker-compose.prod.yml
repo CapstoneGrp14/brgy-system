@@ -23,12 +23,12 @@ x-app-env: &app-env
 
   DB_HOST: mysql
   DB_PORT: "3306"
-  DB_USER: ${DB_USER}
-  DB_PASSWORD: ${DB_PASSWORD}
-  DB_NAME: ${DB_NAME}
+  DB_USER: ${DB_USER:?set it in .env.production}
+  DB_PASSWORD: ${DB_PASSWORD:?set it in .env.production}
+  DB_NAME: ${DB_NAME:?set it in .env.production}
 
   REDIS_URL: redis://redis:6379
-  RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+  RABBITMQ_URL: amqp://${RABBITMQ_USER:?set it in .env.production}:${RABBITMQ_PASSWORD:?set it in .env.production}@rabbitmq:5672
 
   # ── DNS-facing values ────────────────────────────────────────────────────
   # Browsers open presigned URLs directly, so these must be the PUBLIC names.
@@ -36,20 +36,20 @@ x-app-env: &app-env
   MINIO_ENDPOINT: minio
   MINIO_PORT: "9000"
   MINIO_USE_SSL: "false"
-  MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+  MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:?e.g. minio.brgy591.site}
   MINIO_PUBLIC_PORT: "443"
   MINIO_PUBLIC_USE_SSL: "true"
-  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?set it in .env.production}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set it in .env.production}
   MINIO_BUCKET_UPLOADS: uploads
   MINIO_BUCKET_DOCUMENTS: documents
 
   # Public origin of the SPA — used for password-reset / invite links in email.
-  WEB_URL: ${WEB_URL}
+  WEB_URL: ${WEB_URL:?e.g. https://brgy591.site}
   # ─────────────────────────────────────────────────────────────────────────
 
-  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?openssl rand -hex 32}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?openssl rand -hex 32}
   JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
   JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
 
@@ -59,7 +59,7 @@ x-app-env: &app-env
 
   # Resend in production; SMTP_* are ignored when RESEND_API_KEY is set.
   RESEND_API_KEY: ${RESEND_API_KEY:-}
-  MAIL_FROM: ${MAIL_FROM}
+  MAIL_FROM: ${MAIL_FROM:?set it in .env.production}
   SMTP_HOST: ${SMTP_HOST:-}
   SMTP_PORT: ${SMTP_PORT:-587}
   SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -71,14 +71,14 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set it in .env.production}
+      MYSQL_DATABASE: ${DB_NAME:?set it in .env.production}
+      MYSQL_USER: ${DB_USER:?set it in .env.production}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set it in .env.production}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:?set it in .env.production}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -97,8 +97,8 @@ services:
     hostname: brgy-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set it in .env.production}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set it in .env.production}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -112,10 +112,10 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      # Console link-backs; harmless while the console stays unexposed.
-      MINIO_BROWSER_REDIRECT_URL: https://${MINIO_PUBLIC_ENDPOINT}/console
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set it in .env.production}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set it in .env.production}
+      # No MINIO_BROWSER_REDIRECT_URL: the console is loopback-only (SSH tunnel),
+      # and an empty value makes MinIO exit with "scheme appears with empty host".
     ports:
       - "127.0.0.1:9002:9000"   # nginx (host) -> minio.brgy591.site
       - "127.0.0.1:9003:9001"   # console: reach via SSH tunnel only
@@ -135,7 +135,7 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER:?set it in .env.production} ${MINIO_ROOT_PASSWORD:?set it in .env.production}; do
         echo 'waiting for minio…'; sleep 2;
       done &&
       mc mb -p local/uploads local/documents &&
