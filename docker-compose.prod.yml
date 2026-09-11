@@ -213,6 +213,10 @@ services:
   web-build:
     <<: *app-base
     restart: "no"
+    # Behind a profile so `up -d` never starts it: it is a build step, not a
+    # service, and a long npm build racing the other containers' startup is
+    # exactly what tripped the "network not found" error.
+    profiles: ["build"]
     command: >
       sh -c "npm ci &&
              npm run build -w @brgy/shared &&
