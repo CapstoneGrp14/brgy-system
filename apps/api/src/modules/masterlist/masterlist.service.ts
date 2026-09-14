@@ -6,6 +6,7 @@ import { RequestUser } from '../../common/decorators';
 import { AuditService } from '../audit/audit.service';
 import { ResidentProfile } from '../users/resident-profile.entity';
 import { User } from '../users/user.entity';
+import { CsvFormatError, validateCensusCsv, type ValidRow } from './census-csv';
 import { CensusRecordHistory } from './census-history.entity';
 import { CensusRecord } from './census-record.entity';
 import { Household } from './household.entity';
@@ -18,6 +19,26 @@ interface RecordInput {
   category: CensusCategory;
   lguEligibility?: string;
   householdCode?: string;
+}
+
+/** One row that was accepted by validation but not written, and why. */
+interface SkippedRow {
+  row: number;
+  name: string;
+  reason: string;
+}
+
+export interface ImportOutcome {
+  added: number;
+  updated: number;
+  deactivated: number;
+  skipped: number;
+  skippedRows: SkippedRow[];
+}
+
+/** Drop the spreadsheet line number — the write path doesn't care about it. */
+function toRecordInput({ line: _line, ...rest }: ValidRow): RecordInput {
+  return rest;
 }
 
 @Injectable()
@@ -303,65 +324,79 @@ export class MasterlistService {
     csv: string,
     actor: RequestUser,
     mode: 'append' | 'refresh' = 'append',
-  ): Promise<{ added: number; updated: number; deactivated: number; skipped: number }> {
-    const rows = parseCsv(csv);
-    if (rows.length < 2) throw new BadRequestException('CSV needs a header row and at least one record.');
-    const header = rows[0].map((h) => h.trim());
-    const idx = (name: string) => header.findIndex((h) => h.toLowerCase() === name.toLowerCase());
-    const iName = idx('fullName');
-    if (iName === -1) throw new BadRequestException('CSV must have a fullName column.');
-    const [iBirth, iAddr, iPurok, iCat, iLgu, iHh] = [
-      idx('birthdate'), idx('address'), idx('purok'), idx('category'), idx('lguEligibility'), idx('householdCode'),
-    ];
+  ): Promise<ImportOutcome> {
+    let checked;
+    try {
+      checked = validateCensusCsv(csv);
+    } catch (err) {
+      if (err instanceof CsvFormatError) {
+        throw new BadRequestException({
+          message: err.message,
+          hint: err.hint,
+          errors: [],
+          totalErrors: 0,
+        });
+      }
+      throw err;
+    }
+
+    // All-or-nothing: a file with bad rows is rejected outright rather than
+    // half-applied, so the operator fixes the spreadsheet and re-uploads a
+    // file they can trust. Refresh mode especially — a mid-import failure
+    // there would leave real residents wrongly deactivated.
+    if (checked.issues.length) {
+      const shown = checked.issues.length;
+      throw new BadRequestException({
+        message:
+          checked.totalIssues === 1
+            ? 'Found 1 problem in the file — nothing was imported.'
+            : `Found ${checked.totalIssues} problems in the file — nothing was imported.`,
+        hint:
+          checked.totalIssues > shown
+            ? `Showing the first ${shown}. Fix these and re-upload to see the rest.`
+            : 'Fix the rows listed above and upload the file again.',
+        errors: checked.issues,
+        totalErrors: checked.totalIssues,
+      });
+    }
 
     const syncedAt = new Date();
     const seenIds = new Set<string>();
+    const skippedRows: SkippedRow[] = [];
     let added = 0;
     let updated = 0;
-    let skipped = 0;
 
-    for (const row of rows.slice(1)) {
-      const fullName = row[iName]?.trim();
-      if (!fullName) continue;
-      const birthdate = iBirth >= 0 && row[iBirth]?.trim() ? row[iBirth].trim() : undefined;
-      const categoryRaw = (iCat >= 0 ? row[iCat] : '')?.trim().toUpperCase().replace(/ /g, '_');
-      const category = (Object.values(CensusCategory) as string[]).includes(categoryRaw)
-        ? (categoryRaw as CensusCategory)
-        : CensusCategory.REGULAR;
-      const input: RecordInput = {
-        fullName,
-        birthdate,
-        address: (iAddr >= 0 && row[iAddr]?.trim()) || 'Barangay 591',
-        purok: iPurok >= 0 ? row[iPurok]?.trim() : undefined,
-        category,
-        lguEligibility: iLgu >= 0 ? row[iLgu]?.trim() || undefined : undefined,
-        householdCode: iHh >= 0 ? row[iHh]?.trim() || undefined : undefined,
-      };
-
+    for (const input of checked.rows) {
       const existing = await this.census
         .createQueryBuilder('c')
         .leftJoinAndSelect('c.household', 'h')
-        .where('LOWER(TRIM(c.full_name)) = LOWER(:name)', { name: fullName })
-        .andWhere(birthdate ? 'c.birthdate = :bd' : '1=1', { bd: birthdate })
+        .where('LOWER(TRIM(c.full_name)) = LOWER(:name)', { name: input.fullName })
+        .andWhere(input.birthdate ? 'c.birthdate = :bd' : '1=1', { bd: input.birthdate })
         .getOne();
 
       if (existing) {
         seenIds.add(existing.id);
         if (mode === 'refresh') {
-          await this.updateFromCensus(existing, input, syncedAt, `${actor.fullName} (Staff)`);
+          await this.updateFromCensus(existing, toRecordInput(input), syncedAt, `${actor.fullName} (Staff)`);
           updated++;
         } else {
-          skipped++;
+          skippedRows.push({ row: input.line, name: input.fullName, reason: 'Already in the census.' });
         }
         continue;
       }
 
       try {
-        const created = await this.addRecord(input, actor, true);
+        const created = await this.addRecord(toRecordInput(input), actor, true);
         seenIds.add(created.id);
         added++;
-      } catch {
-        skipped++;
+      } catch (err) {
+        // Validation ran first, so this is unexpected — surface the reason
+        // instead of silently inflating the "skipped" count.
+        skippedRows.push({
+          row: input.line,
+          name: input.fullName,
+          reason: err instanceof BadRequestException ? String(err.message) : 'Could not be saved.',
+        });
       }
     }
 
@@ -386,9 +421,9 @@ export class MasterlistService {
       actorLabel: `${actor.fullName} (Staff)`,
       actorId: actor.id,
       action: mode === 'refresh' ? 'Ran Census Refresh' : 'Imported Census CSV',
-      target: `${added} added, ${updated} updated, ${deactivated} deactivated, ${skipped} skipped`,
+      target: `${added} added, ${updated} updated, ${deactivated} deactivated, ${skippedRows.length} skipped`,
     });
-    return { added, updated, deactivated, skipped };
+    return { added, updated, deactivated, skipped: skippedRows.length, skippedRows };
   }
 
   /** Refresh-update one census record and keep any linked resident profile in sync. */
@@ -453,30 +488,4 @@ export class MasterlistService {
       ),
     ].join('\n');
   }
-}
-
-/** Small CSV parser with quoted-field support. */
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (ch === '"') inQuotes = false;
-      else field += ch;
-    } else if (ch === '"') inQuotes = true;
-    else if (ch === ',') { row.push(field); field = ''; }
-    else if (ch === '\n' || ch === '\r') {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      row.push(field); field = '';
-      if (row.some((f) => f !== '')) rows.push(row);
-      row = [];
-    } else field += ch;
-  }
-  row.push(field);
-  if (row.some((f) => f !== '')) rows.push(row);
-  return rows;
 }

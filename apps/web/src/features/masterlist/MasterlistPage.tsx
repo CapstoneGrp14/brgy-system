@@ -6,6 +6,7 @@ import {
   useCensusHistory,
   useDeleteRecord,
   useImportCsv,
+  type ImportErrorBody,
   useMasterlist,
   useUpdateRecord,
 } from '../../api/masterlist';
@@ -54,6 +55,7 @@ export function MasterlistPage() {
   const updateRecord = useUpdateRecord();
   const deleteRecord = useDeleteRecord();
   const importCsv = useImportCsv();
+  const [importError, setImportError] = useState<ImportErrorBody | null>(null);
   const saving = addRecord.isPending || updateRecord.isPending;
 
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
@@ -128,17 +130,36 @@ export function MasterlistPage() {
 
   const runImport = async () => {
     if (!importFile || !importMode || importCsv.isPending) return;
+    setImportError(null);
     try {
       const r = await importCsv.mutateAsync({ file: importFile, mode: importMode });
+      // Duplicates are expected and boring; anything else the operator should hear about.
+      const unexpected = (r.skippedRows ?? []).filter((row) => !/already in the census/i.test(row.reason));
       toast(
-        importMode === 'refresh'
-          ? t('🔄 Census refreshed — {added} added, {updated} updated, {deactivated} deactivated.', { added: r.added, updated: r.updated, deactivated: r.deactivated })
-          : t('📥 Import done — {added} added, {skipped} skipped (already in census).', { added: r.added, skipped: r.skipped }),
+        unexpected.length
+          ? t('📥 Import done — {added} added, but {n} row(s) could not be saved. First: row {row} ({name}) — {reason}', {
+              added: r.added,
+              n: unexpected.length,
+              row: unexpected[0].row,
+              name: unexpected[0].name,
+              reason: unexpected[0].reason,
+            })
+          : importMode === 'refresh'
+            ? t('🔄 Census refreshed — {added} added, {updated} updated, {deactivated} deactivated.', { added: r.added, updated: r.updated, deactivated: r.deactivated })
+            : t('📥 Import done — {added} added, {skipped} skipped (already in census).', { added: r.added, skipped: r.skipped }),
       );
       setImportMode(null);
       setImportFile(null);
     } catch (err: any) {
-      toast(err?.response?.data?.message ?? t('Import failed — check the CSV format.'));
+      const body = err?.response?.data as ImportErrorBody | undefined;
+      // Keep the modal open and show what to fix; a toast is too small for a
+      // row-by-row list and disappears before it can be acted on.
+      setImportError({
+        message: body?.message ?? t('Import failed — the file could not be read.'),
+        hint: body?.hint,
+        errors: Array.isArray(body?.errors) ? body!.errors : [],
+        totalErrors: body?.totalErrors ?? 0,
+      });
     }
   };
 
@@ -154,13 +175,13 @@ export function MasterlistPage() {
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
-            onClick={() => { setImportMode('append'); setImportFile(null); }}
+            onClick={() => { setImportMode('append'); setImportFile(null); setImportError(null); }}
             style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             {t('📥 Import CSV')}
           </button>
           <button
-            onClick={() => { setImportMode('refresh'); setImportFile(null); }}
+            onClick={() => { setImportMode('refresh'); setImportFile(null); setImportError(null); }}
             title={t('Twice-yearly sync: upload the full current census — updates matches, adds new people, deactivates anyone missing from the file')}
             style={{ background: 'none', border: 'none', color: '#C96A11', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
@@ -393,7 +414,7 @@ export function MasterlistPage() {
       {importMode && (
         <Modal
           title={importMode === 'refresh' ? t('🔄 Census Refresh (twice-yearly sync)') : t('📥 Import Census CSV')}
-          onClose={() => { setImportMode(null); setImportFile(null); }}
+          onClose={() => { setImportMode(null); setImportFile(null); setImportError(null); }}
           width={520}
         >
           {importMode === 'refresh' ? (
@@ -410,11 +431,48 @@ export function MasterlistPage() {
           </p>
           <FileDropzone
             file={importFile}
-            onFile={setImportFile}
+            onFile={(f) => { setImportFile(f); setImportError(null); }}
             accept=".csv,text/csv"
             hint={t('CSV · max 2 MB')}
             style={{ marginBottom: 16 }}
           />
+
+          {importError && (
+            <div
+              role="alert"
+              style={{
+                background: '#FEF5F4',
+                border: '1px solid #F3C8C4',
+                borderRadius: 9,
+                padding: '12px 14px',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ font: '700 13px Poppins, sans-serif', color: '#C0392B', lineHeight: 1.5 }}>
+                {importError.message}
+              </div>
+              {importError.hint && (
+                <div style={{ fontSize: 12.5, color: '#8A5A54', marginTop: 6, lineHeight: 1.5 }}>{importError.hint}</div>
+              )}
+              {importError.errors.length > 0 && (
+                <div style={{ maxHeight: 190, overflowY: 'auto', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {importError.errors.map((e, i) => (
+                    <div key={`${e.row}-${e.column}-${i}`} style={{ fontSize: 12.5, color: '#5C4340', lineHeight: 1.5 }}>
+                      <strong style={{ color: '#C0392B' }}>{t('Row {n}', { n: e.row })}</strong>
+                      <span style={{ color: '#8A5A54' }}> · {e.column}</span>
+                      {e.value && (
+                        <code style={{ background: '#FBE6E3', padding: '1px 5px', borderRadius: 4, margin: '0 4px', overflowWrap: 'break-word' }}>
+                          {e.value.length > 40 ? `${e.value.slice(0, 40)}…` : e.value}
+                        </code>
+                      )}
+                      <div style={{ color: '#6B5652' }}>{e.message}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={runImport}
             disabled={!importFile || importCsv.isPending}

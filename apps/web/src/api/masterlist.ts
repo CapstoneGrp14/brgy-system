@@ -78,11 +78,35 @@ export function useDeleteRecord() {
   });
 }
 
+/** A row the API refused, addressed by spreadsheet line number. */
+export interface ImportIssue {
+  row: number;
+  column: string;
+  value: string;
+  message: string;
+}
+
+/** A row that was valid but not written (already present, or a save failure). */
+export interface SkippedRow {
+  row: number;
+  name: string;
+  reason: string;
+}
+
 export interface ImportResult {
   added: number;
   updated: number;
   deactivated: number;
   skipped: number;
+  skippedRows: SkippedRow[];
+}
+
+/** Body of the 400 the import endpoint returns for an unusable file. */
+export interface ImportErrorBody {
+  message: string;
+  hint?: string;
+  errors: ImportIssue[];
+  totalErrors: number;
 }
 
 export function useImportCsv() {

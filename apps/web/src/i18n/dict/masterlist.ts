@@ -13,6 +13,10 @@ export const masterlist: Record<string, string> = {
   '📥 Import done — {added} added, {skipped} skipped (already in census).':
     '📥 Tapos na ang import — {added} naidagdag, {skipped} nilaktawan (nasa census na).',
   'Import failed — check the CSV format.': 'Nabigo ang import — suriin ang format ng CSV.',
+  'Import failed — the file could not be read.': 'Nabigo ang import — hindi mabasa ang file.',
+  'Row {n}': 'Hanay {n}',
+  '📥 Import done — {added} added, but {n} row(s) could not be saved. First: row {row} ({name}) — {reason}':
+    '📥 Tapos ang import — {added} ang naidagdag, ngunit {n} hanay ang hindi na-save. Una: hanay {row} ({name}) — {reason}',
   '⬇ CSV download started': '⬇ Nagsimula na ang download ng CSV',
 
   // Header

@@ -129,7 +129,16 @@ export class MasterlistController {
     @Body('mode') mode: string | undefined,
     @CurrentUser() user: RequestUser,
   ) {
-    if (!file) throw new BadRequestException('Attach a CSV file.');
+    if (!file) throw new BadRequestException({ message: 'Attach a CSV file.', errors: [], totalErrors: 0 });
+    if (!/\.csv$/i.test(file.originalname)) {
+      // Caught here so the reason names the actual file they picked.
+      throw new BadRequestException({
+        message: `"${file.originalname}" is not a .csv file.`,
+        hint: 'In Excel choose File → Save As → CSV UTF-8 (Comma delimited), then upload that file.',
+        errors: [],
+        totalErrors: 0,
+      });
+    }
     const importMode = mode === 'refresh' ? 'refresh' : 'append';
     return this.masterlist.importCsv(file.buffer.toString('utf8'), user, importMode);
   }
