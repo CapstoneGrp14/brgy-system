@@ -68,15 +68,15 @@ export function LoginPage() {
           </>
         )}
         <img
-          src="/brgy591-logo.jpeg"
+          src="/brgy591-logo.png"
           alt="Barangay 591"
           style={{
             width: isMobile ? 64 : 96,
             height: isMobile ? 64 : 96,
             borderRadius: '50%',
             objectFit: 'cover',
-            // The seal sits on a navy panel; a thin gold ring keeps its white
-            // background from reading as a hard square edge.
+            // The seal is a transparent circle; the thin gold ring frames it
+            // against the navy panel.
             border: '2px solid rgba(245,168,28,.55)',
             boxShadow: '0 6px 18px rgba(0,0,0,.28)',
           }}
