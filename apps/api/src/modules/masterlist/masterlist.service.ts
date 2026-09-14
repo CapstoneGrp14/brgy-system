@@ -184,10 +184,29 @@ export class MasterlistService {
         this.households.create({ code: code.trim().toUpperCase(), address, purok }),
       );
     }
-    const count = await this.households.count();
     return this.households.save(
-      this.households.create({ code: `HH-${String(count + 1).padStart(4, '0')}`, address, purok }),
+      this.households.create({ code: await this.nextHouseholdCode(), address, purok }),
     );
+  }
+
+  /**
+   * Next free auto household code.
+   *
+   * This used to be `HH-{count + 1}`, which collides the moment the existing
+   * codes aren't a gapless 1..N run — and they never stay that way once a CSV
+   * supplies explicit codes. The duplicate-key error surfaced as a 500 on an
+   * otherwise valid import. Derive from the highest code in use instead.
+   */
+  private async nextHouseholdCode(): Promise<string> {
+    const rows = await this.households.createQueryBuilder('h').select('h.code', 'code').getRawMany<{ code: string }>();
+    const used = new Set(rows.map((r) => r.code));
+    const highest = rows.reduce((max, r) => {
+      const n = /^HH-(\d+)$/.exec(r.code ?? '');
+      return n ? Math.max(max, Number(n[1])) : max;
+    }, 0);
+    let next = highest + 1;
+    while (used.has(`HH-${String(next).padStart(4, '0')}`)) next++;
+    return `HH-${String(next).padStart(4, '0')}`;
   }
 
   async addRecord(input: RecordInput, actor: RequestUser, quiet = false): Promise<MasterlistRow> {

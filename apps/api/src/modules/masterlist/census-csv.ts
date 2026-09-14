@@ -149,6 +149,74 @@ function todayInManila(): string {
   }).format(new Date());
 }
 
+/** Levenshtein distance, capped small — only used to suggest a header fix. */
+function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(
+        prev[j] + 1,
+        prev[j - 1] + 1,
+        diag + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+      diag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+/**
+ * Reject a header with columns we don't recognise.
+ *
+ * A misspelled OPTIONAL column used to be silently ignored: `birthdat` meant
+ * every birthdate was dropped and the import "succeeded" with the whole column
+ * blank, quietly breaking senior-citizen eligibility. Refusing the file is the
+ * only safe response — we cannot tell a typo from a column the operator
+ * genuinely meant to omit.
+ */
+function checkHeader(header: string[]): void {
+  const known = new Map(CENSUS_COLUMNS.map((c) => [c.toLowerCase(), c]));
+  const seen = new Map<string, number>();
+  const unknown: string[] = [];
+
+  header.forEach((raw, i) => {
+    const name = raw.trim();
+    if (!name) return; // trailing empty cells from a spreadsheet export
+    const key = name.toLowerCase();
+    if (!known.has(key)) {
+      unknown.push(name);
+      return;
+    }
+    const first = seen.get(key);
+    if (first !== undefined) {
+      throw new CsvFormatError(
+        `The column "${known.get(key)}" appears twice (positions ${first + 1} and ${i + 1}).`,
+        'Remove the duplicate column and upload again.',
+      );
+    }
+    seen.set(key, i);
+  });
+
+  if (!unknown.length) return;
+
+  const suggestions = unknown.map((name) => {
+    const best = CENSUS_COLUMNS.map((c) => ({ c, d: editDistance(name.toLowerCase(), c.toLowerCase()) }))
+      .filter(({ c, d }) => d <= 3 && !seen.has(c.toLowerCase()))
+      .sort((a, b) => a.d - b.d)[0];
+    return best ? `"${name}" — did you mean "${best.c}"?` : `"${name}" is not a census column.`;
+  });
+
+  throw new CsvFormatError(
+    unknown.length === 1
+      ? `Unrecognised column in the header: ${suggestions[0]}`
+      : `Unrecognised columns in the header: ${suggestions.join(' ')}`,
+    `Expected header: ${CENSUS_COLUMNS.join(', ')}`,
+  );
+}
+
 /**
  * Parse and check the whole upload.
  *
@@ -193,6 +261,8 @@ export function validateCensusCsv(text: string): CsvValidation {
       `Found: ${header.filter(Boolean).join(', ') || '(nothing)'}. Expected header: ${CENSUS_COLUMNS.join(', ')}`,
     );
   }
+
+  checkHeader(header);
 
   const columnFor: Record<string, number> = {};
   CENSUS_COLUMNS.forEach((c) => {
