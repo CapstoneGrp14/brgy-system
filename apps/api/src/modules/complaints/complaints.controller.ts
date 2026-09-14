@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -101,10 +102,17 @@ export class ComplaintsController {
     return this.complaints.myComplaints(user.id);
   }
 
+  /** Staff eligible to mediate — powers the Lupon dropdown. */
+  @Get('assignees')
+  @Roles(Role.EMPLOYEE, Role.ADMIN)
+  assignees() {
+    return this.complaints.assignees();
+  }
+
   @Get('queue')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
-  queue() {
-    return this.complaints.staffQueue();
+  queue(@Query('includeClosed') includeClosed?: string) {
+    return this.complaints.staffQueue(includeClosed === 'true');
   }
 
   /** Available staff actions per status — the UI renders from this. */

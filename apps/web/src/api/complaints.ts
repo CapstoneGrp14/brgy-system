@@ -60,6 +60,21 @@ export function useEncodeBlotter() {
   });
 }
 
+export interface LuponAssignee {
+  fullName: string;
+  position: string | null;
+}
+
+/** Active staff (employee + admin) eligible to mediate. Replaces the old
+ *  hardcoded name list, so newly invited/promoted staff show up right away. */
+export function useLuponAssignees() {
+  return useQuery({
+    queryKey: ['complaints', 'assignees'],
+    queryFn: async () => (await api.get<LuponAssignee[]>('/complaints/assignees')).data,
+    staleTime: 60_000,
+  });
+}
+
 export function useAssignLupon() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
-import { Role, STAFF_POSITIONS, StaffInviteRow } from '@brgy/shared';
+import { Role, STAFF_POSITIONS, StaffInviteRow, VerificationStatus } from '@brgy/shared';
 import {
   BadRequestException,
   Body,
@@ -18,6 +18,8 @@ import { In, IsNull, MoreThan, Repository } from 'typeorm';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
 import { AuditService } from '../audit/audit.service';
 import { QUEUES, QueueService } from '../queue/queue.service';
+import { CensusRecord } from '../masterlist/census-record.entity';
+import { ResidentProfile } from '../users/resident-profile.entity';
 import { User } from '../users/user.entity';
 import { StaffInvite } from './staff-invite.entity';
 
@@ -43,6 +45,8 @@ export class StaffController {
   constructor(
     @InjectRepository(StaffInvite) private readonly invites: Repository<StaffInvite>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(ResidentProfile) private readonly profiles: Repository<ResidentProfile>,
+    @InjectRepository(CensusRecord) private readonly census: Repository<CensusRecord>,
     private readonly queue: QueueService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
@@ -140,6 +144,44 @@ export class StaffController {
   }
 
   /**
+   * Dual role is driven by the existence of a resident_profile row, not by
+   * `role` (see AuthService: `isResident = role === RESIDENT || profile !== null`).
+   * A staff account that was never census-linked has no profile, so demoting it
+   * only *looked* like a resident — promoting back then dropped the resident
+   * side entirely. Linking the census record here makes the pairing durable in
+   * both directions.
+   *
+   * Returns true when the user ends up with a resident profile.
+   */
+  private async ensureResidentProfile(user: User): Promise<boolean> {
+    const existing = await this.profiles.findOne({ where: { userId: user.id } });
+    if (existing) return true;
+
+    const censusMatch = await this.census
+      .createQueryBuilder('c')
+      .where('LOWER(TRIM(c.full_name)) = LOWER(:name)', { name: user.fullName.trim() })
+      .andWhere('c.is_active = 1')
+      .getOne();
+    if (!censusMatch) return false;
+
+    // Never steal a census record another account already claimed.
+    const claimed = await this.profiles.findOne({ where: { censusRecordId: censusMatch.id } });
+    if (claimed) return false;
+
+    await this.profiles.save(
+      this.profiles.create({
+        userId: user.id,
+        censusRecordId: censusMatch.id,
+        verificationStatus: VerificationStatus.PENDING,
+        address: censusMatch.address,
+        purok: censusMatch.purok,
+        birthdate: censusMatch.birthdate,
+      }),
+    );
+    return true;
+  }
+
+  /**
    * Promote an existing RESIDENT account to staff (one email, one account —
    * the resident profile stays linked, granting dual role automatically).
    */
@@ -151,6 +193,10 @@ export class StaffController {
     if (target.role !== Role.RESIDENT) {
       throw new BadRequestException('This account is already staff.');
     }
+
+    // Do this BEFORE the role flips: once role !== RESIDENT, dual role depends
+    // entirely on the profile row existing.
+    const dualRole = await this.ensureResidentProfile(target);
 
     await this.users.update({ id: target.id }, { role: dto.role, position: dto.position });
     this.audit.log({
@@ -169,7 +215,7 @@ export class StaffController {
         Sign in as usual — you'll land in the staff portal, and you can switch back to your
         resident portal anytime from the sidebar.</p>`,
     });
-    return { ok: true, fullName: target.fullName };
+    return { ok: true, fullName: target.fullName, dualRole };
   }
 
   /** Demote a staff account back to resident (requires a linked resident profile). */
@@ -182,14 +228,17 @@ export class StaffController {
     }
     if (target.id === actor.id) throw new BadRequestException('You cannot demote your own account.');
 
+    const linked = await this.ensureResidentProfile(target);
     await this.users.update({ id: target.id }, { role: Role.RESIDENT, position: null });
     this.audit.log({
       actorLabel: `${actor.fullName} (Admin)`,
       actorId: actor.id,
       action: 'Demoted Staff to Resident',
-      target: `${target.fullName} <${email}>`,
+      target: `${target.fullName} <${email}>${linked ? '' : ' · no census record — resident portal limited'}`,
     });
-    return { ok: true };
+    // linked=false means there is no census record under this name, so the
+    // account cannot act as a real resident (no verification, no services).
+    return { ok: true, linked };
   }
 
   @Delete('invites/:id')

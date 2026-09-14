@@ -14,6 +14,7 @@ import { businessDaysElapsed } from '../../common/sla';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
+import { User } from '../users/user.entity';
 import { Upload } from '../verification/upload.entity';
 import { Complaint } from './complaint.entity';
 
@@ -37,6 +38,7 @@ export class ComplaintsService {
   constructor(
     @InjectRepository(Complaint) private readonly complaints: Repository<Complaint>,
     @InjectRepository(Upload) private readonly uploads: Repository<Upload>,
+    @InjectRepository(User) private readonly users: Repository<User>,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
@@ -168,14 +170,32 @@ export class ComplaintsService {
     return Promise.all(rows.map((c) => this.toDto(c, false)));
   }
 
-  async staffQueue(): Promise<ComplaintsQueueResponse> {
+  async staffQueue(includeClosed = false): Promise<ComplaintsQueueResponse> {
     const rows = await this.complaints.find({
+      // Only live cases stay on the blotter. RESOLVED (settled) and CFA_ISSUED
+      // (mediation failed, case moves to court) are terminal, so they drop off.
+      // includeClosed=true brings them back for review.
+      where: includeClosed ? {} : { status: In(ACTIVE_STATUSES) },
       relations: { complainant: true, evidenceUpload: true },
       order: { filedAt: 'DESC' },
       take: 50,
     });
     const activeCount = await this.complaints.count({ where: { status: In(ACTIVE_STATUSES) } });
     return { items: await Promise.all(rows.map((c) => this.toDto(c, true))), activeCount };
+  }
+
+  /**
+   * Staff who can be assigned as Lupon mediator. Reads the real staff table so
+   * newly invited/promoted accounts appear immediately — this was a hardcoded
+   * list in the UI, which is why new staff never showed up.
+   */
+  async assignees(): Promise<Array<{ fullName: string; position: string | null }>> {
+    const staff = await this.users.find({
+      where: { role: In([Role.EMPLOYEE, Role.ADMIN]), isActive: true },
+      select: ['fullName', 'position'],
+      order: { fullName: 'ASC' },
+    });
+    return staff.map((u) => ({ fullName: u.fullName, position: u.position }));
   }
 
   async assignLupon(id: string, luponAssignee: string, actor: RequestUser): Promise<void> {

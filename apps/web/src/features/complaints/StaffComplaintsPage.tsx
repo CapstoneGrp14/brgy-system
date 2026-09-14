@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   useAdvanceComplaint,
   useAssignLupon,
+  useLuponAssignees,
   useComplaintActions,
   useComplaintsQueue,
   useEncodeBlotter,
@@ -17,7 +18,6 @@ import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 
-const LUPON_MEMBERS = ['Kagawad Lucas', 'Kagawad Reyes', 'Lupon Chair Dizon', 'Ptm. Ty'];
 
 const emptyBlotter = { caseTitle: '', category: COMPLAINT_CATEGORIES[0] as string, respondentName: '', description: '' };
 
@@ -26,6 +26,7 @@ export function StaffComplaintsPage() {
   const { data: actionsMap } = useComplaintActions();
   const advance = useAdvanceComplaint();
   const assign = useAssignLupon();
+  const { data: assignees } = useLuponAssignees();
   const encode = useEncodeBlotter();
   const toast = useUiStore((s) => s.toast);
   const t = useT();
@@ -177,7 +178,10 @@ export function StaffComplaintsPage() {
                         compact
                         value=""
                         placeholder={t('Assign…')}
-                        options={LUPON_MEMBERS.map((m) => ({ value: m, labelText: m }))}
+                        options={(assignees ?? []).map((a) => ({
+                          value: a.fullName,
+                          labelText: a.position ? `${a.fullName} — ${a.position}` : a.fullName,
+                        }))}
                         onChange={(m) =>
                           assign.mutateAsync({ id: c.id, luponAssignee: m }).then(() => toast(t('👥 {name} assigned to {caseTitle}', { name: m, caseTitle: c.caseTitle })))
                         }

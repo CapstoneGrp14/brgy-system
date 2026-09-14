@@ -149,7 +149,13 @@ export function StaffPage() {
                       if (!ok) return;
                       demote
                         .mutateAsync(s.email)
-                        .then(() => toast(t('⬇️ {name} demoted to resident.', { name: s.fullName })))
+                        .then((r) =>
+                          toast(
+                            r?.linked === false
+                              ? t('⬇️ {name} demoted, but no census record matches their name — add them to the masterlist to enable resident services.', { name: s.fullName })
+                              : t('⬇️ {name} demoted to resident.', { name: s.fullName }),
+                          ),
+                        )
                         .catch((err: any) => toast(err?.response?.data?.message ?? t('Demotion failed.')));
                     }}
                     style={{ background: 'none', border: 'none', color: '#C0392B', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}

@@ -46,7 +46,10 @@ export function usePromoteResident() {
 export function useDemoteStaff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (email: string) => (await api.post('/staff/demote', { email })).data,
+    /** `linked: false` = no census record under this name, so the account
+     *  becomes a resident in name only (no verification, no services). */
+    mutationFn: async (email: string) =>
+      (await api.post<{ ok: boolean; linked: boolean }>('/staff/demote', { email })).data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['staff'] }),
   });
 }

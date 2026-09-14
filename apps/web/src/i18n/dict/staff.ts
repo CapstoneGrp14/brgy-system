@@ -41,4 +41,6 @@ export const staff: Record<string, string> = {
   expires: 'mag-e-expire',
   '🗑 Invitation revoked.': '🗑 Binawi ang imbitasyon.',
   Revoke: 'Bawiin',
+  '⬇️ {name} demoted, but no census record matches their name — add them to the masterlist to enable resident services.':
+    '⬇️ Na-demote si {name}, pero walang census record na tumutugma sa pangalan — idagdag sila sa masterlist para magamit ang mga serbisyo para sa residente.',
 };
