@@ -57,6 +57,14 @@ export const CENSUS_COLUMNS = [
   'householdCode',
 ] as const;
 
+/**
+ * Columns the app's own "Download CSV" emits that import accepts but ignores.
+ * `registered` is derived (does a portal account exist?), so it can't be set
+ * from a file — but rejecting it would break the export → edit → import
+ * round-trip, which is the most common way staff build an import file.
+ */
+const IGNORED_COLUMNS = ['registered'] as const;
+
 /** Column widths from census-record.entity / household.entity — checked here so
  *  an over-long cell is a row error instead of a driver-level 500. */
 const MAX_LEN: Record<string, number> = {
@@ -103,38 +111,102 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
+type DateOrder = 'iso' | 'dmy' | 'mdy';
+
+const SLASHED = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/;
+
+/**
+ * Work out what a slash-formatted birthdate column means by looking at the
+ * WHOLE column rather than one cell.
+ *
+ * Opening our own CSV export in Excel or Sheets re-renders ISO dates as
+ * `8/8/2004`, and saving puts that back on disk — so this is the normal path,
+ * not an edge case. A single `11/23/1958` proves the column is month-first;
+ * a single `23/11/1958` proves day-first. Only when no cell disambiguates do
+ * we refuse, because guessing would silently shift birthdays and corrupt
+ * senior-citizen eligibility.
+ */
+function detectDateOrder(values: string[]): { order?: DateOrder; problem?: { message: string; hint: string } } {
+  let dayFirst = false;
+  let monthFirst = false;
+  let sawSlashed = false;
+  let sawTwoDigitYear = false;
+
+  for (const raw of values) {
+    const m = SLASHED.exec(raw.trim());
+    if (!m) continue;
+    sawSlashed = true;
+    if (m[3].length !== 4) sawTwoDigitYear = true;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a > 12) dayFirst = true;
+    if (b > 12) monthFirst = true;
+  }
+
+  if (!sawSlashed) return { order: 'iso' };
+
+  if (sawTwoDigitYear) {
+    return {
+      problem: {
+        message: 'Some birthdates use a 2-digit year, so the century is unclear.',
+        hint: 'Format the birthdate column as YYYY-MM-DD (e.g. 1960-04-03) and save again.',
+      },
+    };
+  }
+  if (dayFirst && monthFirst) {
+    return {
+      problem: {
+        message: 'The birthdate column mixes day/month and month/day ordering, so it cannot be read safely.',
+        hint: 'Format the whole column as YYYY-MM-DD (e.g. 1960-04-03) and save again.',
+      },
+    };
+  }
+  if (dayFirst) return { order: 'dmy' };
+  if (monthFirst) return { order: 'mdy' };
+
+  return {
+    problem: {
+      message: 'Birthdates like "3/4/1960" could mean March 4 or April 3 — every value in the column is ambiguous.',
+      hint: 'Format the birthdate column as YYYY-MM-DD (e.g. 1960-04-03) and save again. In Excel/Sheets: select the column → Format → Number → Custom → yyyy-mm-dd.',
+    },
+  };
+}
+
 /**
  * Accept ISO `YYYY-MM-DD` (optionally with a trailing time, as Excel sometimes
- * writes). Slash formats are rejected rather than guessed: `03/04/1960` is
- * March 4th in a US export and April 3rd in a PH one, and silently picking
- * wrong would corrupt senior-citizen eligibility.
+ * writes), plus slash dates once `detectDateOrder` has established what the
+ * column means.
  */
-function normalizeBirthdate(raw: string, today: string): { value?: string; message?: string } {
+function normalizeBirthdate(raw: string, today: string, order: DateOrder): { value?: string; message?: string } {
   const trimmed = raw.trim();
   if (!trimmed) return {};
 
-  const iso = trimmed.replace(/[/.]/g, '-').split(/[ T]/)[0];
-  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(iso);
-  if (!match) {
-    const looksSlashed = /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(trimmed);
-    return {
-      message: looksSlashed
-        ? 'Date must be YYYY-MM-DD (e.g. 1960-04-03). Excel wrote it day/month-first, which is ambiguous — format the column as Text and retype, or use YYYY-MM-DD.'
-        : 'Date must be YYYY-MM-DD (e.g. 1960-04-03), or left blank.',
-    };
+  let y: string;
+  let m: string;
+  let d: string;
+
+  const slashed = SLASHED.exec(trimmed);
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed.replace(/[/.]/g, '-').split(/[ T]/)[0]);
+
+  if (iso) {
+    [, y, m, d] = iso;
+  } else if (slashed && order !== 'iso') {
+    y = slashed[3];
+    [m, d] = order === 'mdy' ? [slashed[1], slashed[2]] : [slashed[2], slashed[1]];
+  } else {
+    return { message: 'Date must be YYYY-MM-DD (e.g. 1960-04-03), or left blank.' };
   }
 
-  const [, y, m, d] = match;
   const value = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 
   // Round-trip through Date to reject impossible days like 2021-02-30, which
   // MySQL would otherwise refuse with a bare "Incorrect date value".
   const parsed = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-    return { message: `${value} is not a real calendar date.` };
+    return { message: `"${trimmed}" is not a real calendar date.` };
   }
-  if (value > today) return { message: 'Birthdate is in the future.' };
-  if (Number(y) < 1900) return { message: 'Birthdate is before 1900 — check for a typo.' };
+  if (value > today) return { message: `Birthdate ${value} is in the future.` };
+  if (Number(y) < 1900) return { message: `Birthdate ${value} is before 1900 — check for a typo.` };
 
   return { value };
 }
@@ -178,7 +250,9 @@ function editDistance(a: string, b: string): number {
  * genuinely meant to omit.
  */
 function checkHeader(header: string[]): void {
-  const known = new Map(CENSUS_COLUMNS.map((c) => [c.toLowerCase(), c]));
+  const known = new Map<string, string>(
+    [...CENSUS_COLUMNS, ...IGNORED_COLUMNS].map((c) => [c.toLowerCase(), c]),
+  );
   const seen = new Map<string, number>();
   const unknown: string[] = [];
 
@@ -269,6 +343,14 @@ export function validateCensusCsv(text: string): CsvValidation {
     columnFor[c] = idx(c);
   });
 
+  // Decide what the birthdate column means before checking any single row.
+  const iBirth = columnFor['birthdate'];
+  const detected = detectDateOrder(
+    iBirth >= 0 ? rows.slice(1).map((r) => (r[iBirth] ?? '').trim()) : [],
+  );
+  if (detected.problem) throw new CsvFormatError(detected.problem.message, detected.problem.hint);
+  const dateOrder = detected.order ?? 'iso';
+
   const today = todayInManila();
   const validRows: ValidRow[] = [];
   const issues: CsvIssue[] = [];
@@ -312,7 +394,7 @@ export function validateCensusCsv(text: string): CsvValidation {
       }
     }
 
-    const birth = normalizeBirthdate(cell(row, 'birthdate'), today);
+    const birth = normalizeBirthdate(cell(row, 'birthdate'), today, dateOrder);
     if (birth.message) {
       addIssue({ row: line, column: 'birthdate', value: cell(row, 'birthdate'), message: birth.message });
       rowOk = false;
