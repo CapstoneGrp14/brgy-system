@@ -1,4 +1,5 @@
-import type { LoginResponse, MeResponse } from '@brgy/shared';
+import type { LoginResponse, LoginResult, MeResponse, TwoFactorChallenge } from '@brgy/shared';
+import { isTwoFactorChallenge } from '@brgy/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth';
 import { api } from './client';
@@ -17,9 +18,26 @@ export interface RegisterInput {
   password: string;
 }
 
-export async function login(input: LoginInput): Promise<LoginResponse> {
-  const { data } = await api.post<LoginResponse>('/auth/login', input);
+/**
+ * Step 1 of sign-in. With two-factor on, this resolves to a challenge instead
+ * of a session — pass the emailed code to `verifyTwoFactor` to finish.
+ */
+export async function login(input: LoginInput): Promise<LoginResult> {
+  const { data } = await api.post<LoginResult>('/auth/login', input);
+  if (!isTwoFactorChallenge(data)) useAuthStore.getState().setSession(data.accessToken, data.user);
+  return data;
+}
+
+/** Step 2 of sign-in — exchange the emailed code for a session. */
+export async function verifyTwoFactor(challengeId: string, code: string): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/auth/login/verify', { challengeId, code });
   useAuthStore.getState().setSession(data.accessToken, data.user);
+  return data;
+}
+
+/** Email a fresh code for the same challenge (server enforces a cooldown). */
+export async function resendTwoFactorCode(challengeId: string): Promise<TwoFactorChallenge> {
+  const { data } = await api.post<TwoFactorChallenge>('/auth/login/resend', { challengeId });
   return data;
 }
 

@@ -52,6 +52,8 @@ x-app-env: &app-env
   JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?openssl rand -hex 32}
   JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
   JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+  # Two-factor sign-in (emailed 6-digit code) — needs working outbound mail.
+  AUTH_2FA_ENABLED: ${AUTH_2FA_ENABLED:-true}
 
   GOTENBERG_URL: http://gotenberg:3000
   OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}

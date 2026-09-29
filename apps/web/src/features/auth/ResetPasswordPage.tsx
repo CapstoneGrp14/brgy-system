@@ -6,6 +6,7 @@ import { PasswordInput } from '../../components/ui/PasswordInput';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 import { AuthCard } from './AuthCard';
+import { passwordProblem } from './password';
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -20,8 +21,9 @@ export function ResetPasswordPage() {
 
   const submit = async () => {
     if (busy) return;
-    if (password !== confirm) {
-      setError(t('Passwords do not match.'));
+    const problem = passwordProblem(password, confirm);
+    if (problem) {
+      setError(t(problem));
       return;
     }
     setError('');

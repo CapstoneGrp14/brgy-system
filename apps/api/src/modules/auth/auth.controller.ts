@@ -6,7 +6,9 @@ import {
   ForgotPasswordDto,
   LoginDto,
   RegisterDto,
+  ResendTwoFactorDto,
   ResetPasswordDto,
+  VerifyTwoFactorDto,
 } from './auth.dto';
 import { AuthService, REFRESH_COOKIE } from './auth.service';
 
@@ -29,6 +31,19 @@ export class AuthController {
   @HttpCode(200)
   login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     return this.auth.login(dto, res);
+  }
+
+  /** Step 2 of sign-in — exchange the emailed code for a session. */
+  @Post('login/verify')
+  @HttpCode(200)
+  verifyTwoFactor(@Body() dto: VerifyTwoFactorDto, @Res({ passthrough: true }) res: Response) {
+    return this.auth.verifyTwoFactor(dto, res);
+  }
+
+  @Post('login/resend')
+  @HttpCode(200)
+  resendTwoFactor(@Body() dto: ResendTwoFactorDto) {
+    return this.auth.resendTwoFactor(dto);
   }
 
   @Post('refresh')

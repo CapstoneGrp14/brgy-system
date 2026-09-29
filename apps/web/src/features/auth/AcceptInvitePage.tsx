@@ -7,6 +7,7 @@ import { roleHome } from '../../stores/auth';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 import { AuthCard } from './AuthCard';
+import { passwordProblem } from './password';
 
 export function AcceptInvitePage() {
   const [params] = useSearchParams();
@@ -22,8 +23,9 @@ export function AcceptInvitePage() {
 
   const submit = async () => {
     if (busy) return;
-    if (password !== confirm) {
-      setError(t('Passwords do not match.'));
+    const problem = passwordProblem(password, confirm);
+    if (problem) {
+      setError(t(problem));
       return;
     }
     setError('');

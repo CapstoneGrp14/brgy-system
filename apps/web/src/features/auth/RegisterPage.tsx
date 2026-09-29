@@ -5,6 +5,7 @@ import { btnBusy, btnPrimary, errorText, input, label } from '../../components/u
 import { DatePicker, todayString } from '../../components/ui/DatePicker';
 import { Modal } from '../../components/ui/Modal';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { passwordProblem } from './password';
 import { TermsContent } from './TermsContent';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
@@ -27,6 +28,11 @@ export function RegisterPage() {
     if (busy) return;
     if (!agreed) {
       setError(t('Please read and accept the Terms & Conditions to continue.'));
+      return;
+    }
+    const weak = passwordProblem(form.password);
+    if (weak) {
+      setError(t(weak));
       return;
     }
     setError('');

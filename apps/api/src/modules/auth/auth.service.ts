@@ -1,5 +1,12 @@
-import { createHash, randomUUID } from 'crypto';
-import { LoginResponse, Role, VerificationStatus } from '@brgy/shared';
+import { createHash, createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
+import {
+  LoginResponse,
+  LoginResult,
+  Role,
+  TWO_FACTOR_CODE_LENGTH,
+  TwoFactorChallenge,
+  VerificationStatus,
+} from '@brgy/shared';
 import {
   BadRequestException,
   ConflictException,
@@ -14,15 +21,31 @@ import * as bcrypt from 'bcryptjs';
 import { Response } from 'express';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { MailJob, MailService } from '../mail/mail.service';
 import { CensusRecord } from '../masterlist/census-record.entity';
 import { QUEUES, QueueService } from '../queue/queue.service';
 import { ResidentProfile } from '../users/resident-profile.entity';
 import { User } from '../users/user.entity';
-import { AcceptInviteDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from './auth.dto';
+import {
+  AcceptInviteDto,
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResendTwoFactorDto,
+  ResetPasswordDto,
+  VerifyTwoFactorDto,
+} from './auth.dto';
+import { LoginChallenge } from './login-challenge.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { StaffInvite } from './staff-invite.entity';
 
 export const REFRESH_COOKIE = 'brgy_rt';
+
+/** Two-factor sign-in limits — short-lived code, hard caps on guessing/resending. */
+const CODE_TTL_SECONDS = 10 * 60;
+const RESEND_COOLDOWN_SECONDS = 60;
+const MAX_ATTEMPTS = 5;
+const MAX_SENDS = 4;
 
 const roleLabel: Record<Role, string> = {
   [Role.RESIDENT]: 'Resident',
@@ -38,10 +61,12 @@ export class AuthService {
     @InjectRepository(CensusRecord) private readonly census: Repository<CensusRecord>,
     @InjectRepository(RefreshToken) private readonly refreshTokens: Repository<RefreshToken>,
     @InjectRepository(StaffInvite) private readonly invites: Repository<StaffInvite>,
+    @InjectRepository(LoginChallenge) private readonly challenges: Repository<LoginChallenge>,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
     private readonly queue: QueueService,
+    private readonly mail: MailService,
   ) {}
 
   private label(user: User): string {
@@ -235,15 +260,200 @@ export class AuthService {
     return this.issueTokens(user, res, true);
   }
 
-  async login(dto: LoginDto, res: Response): Promise<LoginResponse> {
+  // ── Two-factor sign-in (emailed code) ─────────────────────────────────
+
+  /** Off only when AUTH_2FA_ENABLED is explicitly set to "false" (local dev). */
+  private get twoFactorEnabled(): boolean {
+    return this.config.get<string>('AUTH_2FA_ENABLED', 'true') !== 'false';
+  }
+
+  /**
+   * Keyed digest of the code. An HMAC rather than a plain hash so a leaked
+   * table cannot be brute-forced offline (a 6-digit space is only a million
+   * candidates) without also holding the server secret.
+   */
+  private hashCode(code: string): string {
+    return createHmac('sha256', this.config.get('JWT_REFRESH_SECRET', 'dev-refresh-secret-change-me'))
+      .update(code)
+      .digest('hex');
+  }
+
+  /** "antonette@gmail.com" → "an*****te@gmail.com" — enough to recognise, not to learn. */
+  private maskEmail(email: string): string {
+    const [name, domain] = email.split('@');
+    if (!domain) return email;
+    if (name.length <= 2) return `${name[0]}*@${domain}`;
+    const keep = name.length <= 4 ? 1 : 2;
+    return `${name.slice(0, keep)}${'*'.repeat(Math.max(2, name.length - keep * 2))}${name.slice(-keep)}@${domain}`;
+  }
+
+  /**
+   * Hand the code to the worker over RabbitMQ like every other outbound mail,
+   * but fall back to sending in-process when the broker is unreachable — a
+   * login code that never arrives locks the resident out of the portal.
+   */
+  private async sendMail(job: MailJob): Promise<void> {
+    try {
+      await this.queue.publish(QUEUES.email, job);
+    } catch {
+      await this.mail.send(job);
+    }
+  }
+
+  private codeEmail(user: User, code: string): MailJob {
+    const minutes = Math.round(CODE_TTL_SECONDS / 60);
+    return {
+      to: user.email,
+      subject: `Barangay 591 — Your sign-in code is ${code}`,
+      html: `
+        <p>Hi ${user.fullName},</p>
+        <p>Use this code to finish signing in to the Barangay 591 e-Services Portal:</p>
+        <p style="font:800 32px 'Segoe UI',Arial,sans-serif;letter-spacing:8px;color:#1E3A5F;
+                  background:#F0F4FA;border-radius:10px;padding:16px 20px;text-align:center;margin:18px 0;">
+          ${code}
+        </p>
+        <p>The code expires in ${minutes} minutes and can be used once.</p>
+        <p><strong>Didn't try to sign in?</strong> Someone may know your password — change it right away
+        and tell the Barangay Hall.</p>`,
+    };
+  }
+
+  /**
+   * Issue (or re-issue) a login challenge and email the code. Any earlier
+   * challenge for the account is dropped, so only the newest code works.
+   */
+  private async startTwoFactor(user: User, rememberMe: boolean): Promise<TwoFactorChallenge> {
+    await this.challenges.delete({ userId: user.id });
+
+    const code = String(randomInt(0, 10 ** TWO_FACTOR_CODE_LENGTH)).padStart(TWO_FACTOR_CODE_LENGTH, '0');
+    const now = new Date();
+    const challenge = await this.challenges.save(
+      this.challenges.create({
+        id: randomUUID(),
+        userId: user.id,
+        codeHash: this.hashCode(code),
+        rememberMe,
+        attempts: 0,
+        sends: 1,
+        lastSentAt: now,
+        expiresAt: new Date(now.getTime() + CODE_TTL_SECONDS * 1000),
+      }),
+    );
+
+    await this.sendMail(this.codeEmail(user, code));
+    this.audit.log({
+      actorLabel: this.label(user),
+      actorId: user.id,
+      action: 'Sign-in Code Sent',
+      target: this.maskEmail(user.email),
+    });
+
+    return {
+      twoFactorRequired: true,
+      challengeId: challenge.id,
+      maskedEmail: this.maskEmail(user.email),
+      expiresInSeconds: CODE_TTL_SECONDS,
+      resendAfterSeconds: RESEND_COOLDOWN_SECONDS,
+    };
+  }
+
+  /**
+   * A dead end for this challenge — the client should drop it and start over
+   * at the password form. `restart` is what tells it to, instead of leaving the
+   * resident staring at a code box that can no longer work.
+   */
+  private restartLogin(message: string): never {
+    throw new UnauthorizedException({ statusCode: 401, error: 'Unauthorized', message, restart: true });
+  }
+
+  /** Loads a still-usable challenge, or explains why it cannot be used. */
+  private async liveChallenge(challengeId: string): Promise<{ challenge: LoginChallenge; user: User }> {
+    const challenge = await this.challenges.findOne({ where: { id: challengeId } });
+    if (!challenge || challenge.expiresAt < new Date()) {
+      this.restartLogin('This code has expired — please sign in again.');
+    }
+    const user = await this.users.findOne({ where: { id: challenge.userId } });
+    if (!user || !user.isActive) {
+      await this.challenges.delete({ id: challenge.id });
+      this.restartLogin('Account unavailable.');
+    }
+    return { challenge, user };
+  }
+
+  /**
+   * Step 1 of sign-in: check the password. With 2FA on, no session is created
+   * yet — the caller gets a challenge and must post the emailed code to
+   * /auth/login/verify.
+   */
+  async login(dto: LoginDto, res: Response): Promise<LoginResult> {
     const user = await this.users.findOne({ where: { email: dto.email.toLowerCase() } });
     const passwordOk = user && (await bcrypt.compare(dto.password, user.passwordHash));
     if (!user || !passwordOk || !user.isActive) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
+    if (this.twoFactorEnabled) return this.startTwoFactor(user, dto.rememberMe ?? true);
+
     this.audit.log({ actorLabel: this.label(user), actorId: user.id, action: 'Logged In' });
     return this.issueTokens(user, res, dto.rememberMe ?? true);
+  }
+
+  /** Step 2 of sign-in: exchange the emailed code for a session. */
+  async verifyTwoFactor(dto: VerifyTwoFactorDto, res: Response): Promise<LoginResponse> {
+    const { challenge, user } = await this.liveChallenge(dto.challengeId);
+
+    const expected = Buffer.from(challenge.codeHash, 'hex');
+    const given = Buffer.from(this.hashCode(dto.code), 'hex');
+    if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+      const attempts = challenge.attempts + 1;
+      if (attempts >= MAX_ATTEMPTS) {
+        await this.challenges.delete({ id: challenge.id });
+        this.audit.log({
+          actorLabel: this.label(user),
+          actorId: user.id,
+          action: 'Sign-in Code Locked Out',
+          target: `${MAX_ATTEMPTS} wrong codes`,
+        });
+        this.restartLogin('Too many incorrect codes — please sign in again.');
+      }
+      await this.challenges.update({ id: challenge.id }, { attempts });
+      const left = MAX_ATTEMPTS - attempts;
+      throw new UnauthorizedException(
+        `That code is incorrect — ${left} ${left === 1 ? 'try' : 'tries'} left.`,
+      );
+    }
+
+    // Single-use: delete rather than mark, so a replay finds nothing at all.
+    await this.challenges.delete({ id: challenge.id });
+    this.audit.log({
+      actorLabel: this.label(user),
+      actorId: user.id,
+      action: 'Logged In',
+      target: 'Two-factor code verified',
+    });
+    return this.issueTokens(user, res, challenge.rememberMe);
+  }
+
+  /** Email a fresh code for the same challenge, behind a cooldown + send cap. */
+  async resendTwoFactor(dto: ResendTwoFactorDto): Promise<TwoFactorChallenge> {
+    const { challenge, user } = await this.liveChallenge(dto.challengeId);
+
+    const sinceLastSend = (Date.now() - challenge.lastSentAt.getTime()) / 1000;
+    if (sinceLastSend < RESEND_COOLDOWN_SECONDS) {
+      throw new BadRequestException(
+        `Please wait ${Math.ceil(RESEND_COOLDOWN_SECONDS - sinceLastSend)}s before asking for another code.`,
+      );
+    }
+    if (challenge.sends >= MAX_SENDS) {
+      await this.challenges.delete({ id: challenge.id });
+      this.restartLogin('Too many codes requested — please sign in again.');
+    }
+
+    // startTwoFactor() clears the old row, so the previous code stops working
+    // and the resend cap carries over onto the new challenge.
+    const next = await this.startTwoFactor(user, challenge.rememberMe);
+    await this.challenges.update({ id: next.challengeId }, { sends: challenge.sends + 1 });
+    return next;
   }
 
   async refresh(rawToken: string | undefined, res: Response): Promise<LoginResponse> {

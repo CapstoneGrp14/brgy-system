@@ -1,9 +1,11 @@
+import { TWO_FACTOR_CODE_LENGTH } from '@brgy/shared';
 import {
   IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   MinLength,
@@ -21,6 +23,22 @@ export class LoginDto {
   @IsOptional()
   @IsBoolean()
   rememberMe?: boolean;
+}
+
+export class VerifyTwoFactorDto {
+  @IsUUID()
+  challengeId: string;
+
+  /** The 6-digit code from the sign-in email. */
+  @Matches(new RegExp(`^\\d{${TWO_FACTOR_CODE_LENGTH}}$`), {
+    message: `Enter the ${TWO_FACTOR_CODE_LENGTH}-digit code from your email.`,
+  })
+  code: string;
+}
+
+export class ResendTwoFactorDto {
+  @IsUUID()
+  challengeId: string;
 }
 
 export class RegisterDto {
@@ -73,7 +91,7 @@ export class ResetPasswordDto {
   token: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
   @MaxLength(72)
   newPassword: string;
 }

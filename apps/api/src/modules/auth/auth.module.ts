@@ -8,6 +8,7 @@ import { User } from '../users/user.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { LoginChallenge } from './login-challenge.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { StaffController } from './staff.controller';
 import { StaffInvite } from './staff-invite.entity';
@@ -16,7 +17,7 @@ import { StaffInvite } from './staff-invite.entity';
   imports: [
     PassportModule,
     JwtModule.register({}),
-    TypeOrmModule.forFeature([User, ResidentProfile, CensusRecord, RefreshToken, StaffInvite]),
+    TypeOrmModule.forFeature([User, ResidentProfile, CensusRecord, RefreshToken, StaffInvite, LoginChallenge]),
   ],
   controllers: [AuthController, StaffController],
   providers: [AuthService, JwtStrategy],

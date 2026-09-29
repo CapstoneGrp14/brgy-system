@@ -32,6 +32,31 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
+/** Digits in the emailed login code (FR-1.x two-factor sign-in). */
+export const TWO_FACTOR_CODE_LENGTH = 6;
+
+/**
+ * Returned by POST /auth/login when the password checked out but the account
+ * still has to prove control of its inbox. No tokens are issued yet — the
+ * client posts `challengeId` + the emailed code to /auth/login/verify.
+ */
+export interface TwoFactorChallenge {
+  twoFactorRequired: true;
+  challengeId: string;
+  /** Masked recipient (e.g. "an****te@gmail.com") — safe to show on screen. */
+  maskedEmail: string;
+  /** Seconds until the code expires. */
+  expiresInSeconds: number;
+  /** Seconds before "Resend code" becomes available again. */
+  resendAfterSeconds: number;
+}
+
+/** POST /auth/login either signs you in or hands back a 2FA challenge. */
+export type LoginResult = LoginResponse | TwoFactorChallenge;
+
+export const isTwoFactorChallenge = (r: LoginResult): r is TwoFactorChallenge =>
+  (r as TwoFactorChallenge).twoFactorRequired === true;
+
 export interface MeResponse extends AuthUser {
   phone: string | null;
   address: string | null;

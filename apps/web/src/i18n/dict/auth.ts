@@ -118,4 +118,33 @@ export const auth: Record<string, string> = {
     'Layunin ng Barangay na iproseso ang mga kahilingan sa loob ng mga takdang panahon ng ARTA (3-araw simple, 7-araw complex, 20-araw technical) ngunit hindi ginagarantiyahan ang tuluy-tuloy na pagkakaroon ng online portal. Nananatiling magagamit ang mga on-site na serbisyo sa Barangay Hall bilang alternatibo.',
   'By checking the agreement box, you acknowledge that you have read, understood, and accepted these Terms & Conditions and the Data Privacy Notice.':
     'Sa paglagay ng check sa agreement box, kinikilala mo na nabasa, naunawaan, at tinanggap mo ang Mga Tuntunin at Kondisyon at ang Data Privacy Notice.',
+
+  // ── TwoFactorStep — emailed sign-in code ──────────────────────────
+  'Check your email': 'Tingnan ang iyong email',
+  'For your security we emailed a {n}-digit code to':
+    'Para sa iyong kaligtasan, nagpadala kami ng {n}-digit na code sa',
+  'Enter it below to finish signing in.': 'Ilagay ito sa ibaba para matapos ang pag-sign in.',
+  'Digit {n}': 'Digit {n}',
+  '⏱️ Code expires in {time}': '⏱️ Mag-e-expire ang code sa {time}',
+  '⏱️ This code has expired — sign in again to get a new one.':
+    '⏱️ Nag-expire na ang code na ito — mag-sign in muli para makakuha ng bago.',
+  'Verifying…': 'Bine-verify…',
+  'Verify & Sign In': 'I-verify at Mag-sign In',
+  'Resend code': 'Ipadala muli ang code',
+  'Resend code in {s}s': 'Ipadala muli ang code sa {s}s',
+  '← Use a different account': '← Gumamit ng ibang account',
+  '📧 A new code is on its way — the previous one no longer works.':
+    '📧 Padating na ang bagong code — hindi na gumagana ang dati.',
+  'We could not verify that code — please try again.':
+    'Hindi namin ma-verify ang code na iyon — pakisubukan muli.',
+  'Could not send another code — please sign in again.':
+    'Hindi makapadala ng panibagong code — pakisubukang mag-sign in muli.',
+  "Didn't get it? Check your spam folder — the code comes from the Barangay 591 e-Services Portal.":
+    'Hindi dumating? Tingnan ang iyong spam folder — mula sa Barangay 591 e-Services Portal ang code.',
+
+  // ── Password rules (shared by register / invite / reset) ──────────
+  'Password must be at least 8 characters.':
+    'Ang password ay dapat may hindi bababa sa 8 karakter.',
+  'Password must be 72 characters or fewer.':
+    'Ang password ay dapat 72 karakter o mas kaunti.',
 };

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isTwoFactorChallenge, type LoginResponse, type TwoFactorChallenge } from '@brgy/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
@@ -10,6 +11,7 @@ import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { roleHome, useAuthStore } from '../../stores/auth';
 import { useUiStore } from '../../stores/ui';
+import { TwoFactorStep } from './TwoFactorStep';
 
 export function LoginPage() {
   const { status, user } = useAuthStore();
@@ -29,17 +31,28 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Set once the password checks out and a code has been emailed — the form
+  // is then swapped for the code step (no session exists yet).
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
 
   if (status === 'authed' && user) return <Navigate to={roleHome(user.role)} replace />;
+
+  const enter = (session: LoginResponse) => {
+    toast(t('👋 Welcome back, {name}!', { name: session.user.fullName.split(' ')[0] }));
+    navigate(roleHome(session.user.role));
+  };
 
   const submit = async () => {
     if (busy) return;
     setError('');
     setBusy(true);
     try {
-      const session = await login({ email, password, rememberMe });
-      toast(t('👋 Welcome back, {name}!', { name: session.user.fullName.split(' ')[0] }));
-      navigate(roleHome(session.user.role));
+      const result = await login({ email, password, rememberMe });
+      if (isTwoFactorChallenge(result)) {
+        setChallenge(result);
+        return;
+      }
+      enter(result);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? t('Sign-in failed — please try again.'));
     } finally {
@@ -126,49 +139,64 @@ export function LoginPage() {
         }}
       >
         <div style={{ width: isMobile ? '100%' : 400, maxWidth: 440 }}>
-          <h1 style={{ margin: 0, font: '700 22px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Sign in')}</h1>
-          <p style={{ margin: '6px 0 20px', fontSize: 13.5, color: '#64748B' }}>
-            {t('Welcome back — your portal opens based on your account.')}
-          </p>
+          {challenge ? (
+            <TwoFactorStep
+              challenge={challenge}
+              onChallengeRefreshed={setChallenge}
+              onVerified={enter}
+              onCancel={(reason) => {
+                setChallenge(null);
+                setPassword('');
+                setError(reason ?? '');
+              }}
+            />
+          ) : (
+            <>
+              <h1 style={{ margin: 0, font: '700 22px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Sign in')}</h1>
+              <p style={{ margin: '6px 0 20px', fontSize: 13.5, color: '#64748B' }}>
+                {t('Welcome back — your portal opens based on your account.')}
+              </p>
 
-          <label style={label}>{t('Email or Mobile Number')}</label>
-          <input
-            style={{ ...input, marginBottom: 14 }}
-            placeholder={t('e.g., antonette@gmail.com')}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            autoComplete="username"
-          />
-          <label style={label}>{t('Password')}</label>
-          <PasswordInput
-            style={{ marginBottom: 14 }}
-            placeholder="••••••••"
-            value={password}
-            onChange={setPassword}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            autoComplete="current-password"
-          />
+              <label style={label}>{t('Email or Mobile Number')}</label>
+              <input
+                style={{ ...input, marginBottom: 14 }}
+                placeholder={t('e.g., antonette@gmail.com')}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+                autoComplete="username"
+              />
+              <label style={label}>{t('Password')}</label>
+              <PasswordInput
+                style={{ marginBottom: 14 }}
+                placeholder="••••••••"
+                value={password}
+                onChange={setPassword}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+                autoComplete="current-password"
+              />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#33415E', cursor: 'pointer' }}>
-              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
-              {t('Remember me')}
-            </label>
-            <Link to="/forgot-password" style={{ fontSize: 13, fontWeight: 600 }}>
-              {t('Forgot password?')}
-            </Link>
-          </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#33415E', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                  {t('Remember me')}
+                </label>
+                <Link to="/forgot-password" style={{ fontSize: 13, fontWeight: 600 }}>
+                  {t('Forgot password?')}
+                </Link>
+              </div>
 
-          {error && <div style={{ ...errorText, marginBottom: 14 }}>{error}</div>}
+              {error && <div style={{ ...errorText, marginBottom: 14 }}>{error}</div>}
 
-          <button onClick={submit} style={busy ? btnBusy : btnPrimary}>
-            {busy ? t('Signing in…') : t('Sign In')}
-          </button>
+              <button onClick={submit} style={busy ? btnBusy : btnPrimary}>
+                {busy ? t('Signing in…') : t('Sign In')}
+              </button>
 
-          <p style={{ textAlign: 'center', fontSize: 13, color: '#64748B', marginTop: 18, marginBottom: 0 }}>
-            {t('New resident?')} <Link to="/register" style={{ fontWeight: 700 }}>{t('Create an account')}</Link>
-          </p>
+              <p style={{ textAlign: 'center', fontSize: 13, color: '#64748B', marginTop: 18, marginBottom: 0 }}>
+                {t('New resident?')} <Link to="/register" style={{ fontWeight: 700 }}>{t('Create an account')}</Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
       <Toasts />
