@@ -1,4 +1,5 @@
-import { registerDecorator, ValidationOptions } from 'class-validator';
+import { PASSWORD_MAX_LENGTH, passwordProblem } from '@brgy/shared';
+import { registerDecorator, ValidationArguments, ValidationOptions } from 'class-validator';
 
 /**
  * Rejects a YYYY-MM-DD string that falls after today. The date pickers already
@@ -22,6 +23,36 @@ export function IsNotFutureDate(validationOptions?: ValidationOptions) {
         },
         defaultMessage(): string {
           return 'Birthdate cannot be in the future.';
+        },
+      },
+    });
+  };
+}
+
+/**
+ * Enforces the shared password policy (length + uppercase + special char).
+ * Delegates to @brgy/shared so the API and the sign-up form can never drift
+ * apart — and so the rejection names exactly what is missing instead of a
+ * generic "invalid password".
+ */
+export function IsStrongPassword(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string): void {
+    registerDecorator({
+      name: 'isStrongPassword',
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: unknown): boolean {
+          return typeof value === 'string' && passwordProblem(value) === null;
+        },
+        defaultMessage(args: ValidationArguments): string {
+          const value = args.value;
+          if (typeof value !== 'string') return 'Password is required.';
+          return (
+            passwordProblem(value) ??
+            `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`
+          );
         },
       },
     });

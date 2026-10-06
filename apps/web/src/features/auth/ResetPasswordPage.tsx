@@ -1,12 +1,13 @@
 import { useState } from 'react';
+import { passwordProblem } from '@brgy/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { resetPassword } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, label } from '../../components/ui/kit';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 import { AuthCard } from './AuthCard';
-import { passwordProblem } from './password';
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -49,9 +50,10 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthCard title={t('Reset password')} subtitle={t('Choose a new password (min. 8 characters).')}>
+    <AuthCard title={t('Reset password')} subtitle={t('Choose a new password that meets the requirements below.')}>
       <label style={label}>{t('New Password')}</label>
-      <PasswordInput style={{ marginBottom: 12 }} value={password} onChange={setPassword} autoComplete="new-password" />
+      <PasswordInput style={{ marginBottom: 8 }} value={password} onChange={setPassword} autoComplete="new-password" />
+      <PasswordRequirements password={password} />
       <label style={label}>{t('Confirm New Password')}</label>
       <PasswordInput style={{ marginBottom: 14 }} value={confirm} onChange={setConfirm} onKeyDown={(e) => e.key === 'Enter' && submit()} autoComplete="new-password" />
       {error && <div style={{ ...errorText, marginBottom: 12 }}>{error}</div>}

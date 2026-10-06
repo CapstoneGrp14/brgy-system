@@ -1,11 +1,12 @@
 import { useState, type ChangeEvent } from 'react';
+import { passwordProblem } from '@brgy/shared';
 import { useNavigate } from 'react-router-dom';
 import { register } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, input, label } from '../../components/ui/kit';
 import { DatePicker, todayString } from '../../components/ui/DatePicker';
 import { Modal } from '../../components/ui/Modal';
 import { PasswordInput } from '../../components/ui/PasswordInput';
-import { passwordProblem } from './password';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import { TermsContent } from './TermsContent';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
@@ -79,16 +80,17 @@ export function RegisterPage() {
           <input style={{ ...input, marginBottom: 12 }} placeholder="09XXXXXXXXX" value={form.phone} onChange={set('phone')} />
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
-        <div>
-          <label style={label}>{t('Email')}</label>
-          <input style={{ ...input, marginBottom: 12 }} placeholder="you@email.com" value={form.email} onChange={set('email')} />
-        </div>
-        <div>
-          <label style={label}>{t('Password')}</label>
-          <PasswordInput style={{ marginBottom: 12 }} placeholder={t('min. 8 characters')} value={form.password} onChange={(v) => setForm((f) => ({ ...f, password: v }))} autoComplete="new-password" />
-        </div>
-      </div>
+      <label style={label}>{t('Email')}</label>
+      <input style={{ ...input, marginBottom: 12 }} placeholder="you@email.com" value={form.email} onChange={set('email')} />
+      <label style={label}>{t('Password')}</label>
+      <PasswordInput
+        style={{ marginBottom: 8 }}
+        placeholder={t('Create a password')}
+        value={form.password}
+        onChange={(v) => setForm((f) => ({ ...f, password: v }))}
+        autoComplete="new-password"
+      />
+      <PasswordRequirements password={form.password} />
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: '#33415E', cursor: 'pointer', marginBottom: 14 }}>
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
         <span>

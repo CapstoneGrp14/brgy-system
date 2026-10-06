@@ -1,4 +1,4 @@
-import { TWO_FACTOR_CODE_LENGTH } from '@brgy/shared';
+import { PASSWORD_MAX_LENGTH, TWO_FACTOR_CODE_LENGTH } from '@brgy/shared';
 import {
   IsBoolean,
   IsEmail,
@@ -8,9 +8,8 @@ import {
   IsUUID,
   Matches,
   MaxLength,
-  MinLength,
 } from 'class-validator';
-import { IsNotFutureDate } from '../../common/validators';
+import { IsNotFutureDate, IsStrongPassword } from '../../common/validators';
 
 export class LoginDto {
   @IsEmail()
@@ -60,8 +59,8 @@ export class RegisterDto {
   phone?: string;
 
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  @MaxLength(72)
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  @IsStrongPassword()
   password: string;
 }
 
@@ -71,8 +70,8 @@ export class AcceptInviteDto {
   token: string;
 
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  @MaxLength(72)
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  @IsStrongPassword()
   password: string;
 
   @IsOptional()
@@ -91,7 +90,7 @@ export class ResetPasswordDto {
   token: string;
 
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  @MaxLength(72)
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  @IsStrongPassword()
   newPassword: string;
 }

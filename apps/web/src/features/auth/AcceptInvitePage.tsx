@@ -1,13 +1,14 @@
 import { useState } from 'react';
+import { passwordProblem } from '@brgy/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { acceptInvite } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, input, label } from '../../components/ui/kit';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import { roleHome } from '../../stores/auth';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 import { AuthCard } from './AuthCard';
-import { passwordProblem } from './password';
 
 export function AcceptInvitePage() {
   const [params] = useSearchParams();
@@ -53,7 +54,8 @@ export function AcceptInvitePage() {
   return (
     <AuthCard title={t('Set up your staff account')} subtitle={t('Choose a password to activate your Barangay 591 staff access.')}>
       <label style={label}>{t('Password')}</label>
-      <PasswordInput style={{ marginBottom: 12 }} placeholder={t('min. 8 characters')} value={password} onChange={setPassword} autoComplete="new-password" />
+      <PasswordInput style={{ marginBottom: 8 }} placeholder={t('Create a password')} value={password} onChange={setPassword} autoComplete="new-password" />
+      <PasswordRequirements password={password} />
       <label style={label}>{t('Confirm Password')}</label>
       <PasswordInput style={{ marginBottom: 12 }} value={confirm} onChange={setConfirm} autoComplete="new-password" />
       <label style={label}>{t('Mobile Number (optional)')}</label>

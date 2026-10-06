@@ -34,7 +34,6 @@ export const auth: Record<string, string> = {
   Birthdate: 'Kaarawan',
   'As registered in census': 'Ayon sa nakarehistro sa census',
   'Mobile No. (optional)': 'Mobile No. (opsyonal)',
-  'min. 8 characters': 'min. 8 karakter',
   'I have read and agree to the': 'Nabasa ko at sumasang-ayon ako sa',
   'Terms & Conditions': 'Mga Tuntunin at Kondisyon',
   'and Data Privacy Notice.': 'at Data Privacy Notice.',
@@ -64,7 +63,6 @@ export const auth: Record<string, string> = {
   'Reset password': 'I-reset ang password',
   'This reset link is incomplete — use the link from your email.':
     'Hindi kumpleto ang reset link na ito — gamitin ang link mula sa iyong email.',
-  'Choose a new password (min. 8 characters).': 'Pumili ng bagong password (min. 8 karakter).',
   'New Password': 'Bagong Password',
   'Confirm New Password': 'Kumpirmahin ang Bagong Password',
   'Updating…': 'Ina-update…',
@@ -142,9 +140,30 @@ export const auth: Record<string, string> = {
   "Didn't get it? Check your spam folder — the code comes from the Barangay 591 e-Services Portal.":
     'Hindi dumating? Tingnan ang iyong spam folder — mula sa Barangay 591 e-Services Portal ang code.',
 
-  // ── Password rules (shared by register / invite / reset) ──────────
-  'Password must be at least 8 characters.':
+  // ── Password policy (shared by register / invite / reset) ─────────
+  // Checklist labels
+  'At least 8 characters': 'Hindi bababa sa 8 karakter',
+  'One uppercase letter (A–Z)': 'Isang malaking titik (A–Z)',
+  'One special character (! @ # $ …)': 'Isang espesyal na karakter (! @ # $ …)',
+  'Create a password': 'Gumawa ng password',
+  'Choose a new password that meets the requirements below.':
+    'Pumili ng bagong password na tumutugma sa mga kinakailangan sa ibaba.',
+
+  // Every message passwordProblem() can produce, one per unmet-rule combination
+  'Password must contain at least 8 characters.':
     'Ang password ay dapat may hindi bababa sa 8 karakter.',
+  'Password must contain one uppercase letter.':
+    'Ang password ay dapat may isang malaking titik.',
+  'Password must contain one special character.':
+    'Ang password ay dapat may isang espesyal na karakter.',
+  'Password must contain at least 8 characters and one uppercase letter.':
+    'Ang password ay dapat may hindi bababa sa 8 karakter at isang malaking titik.',
+  'Password must contain at least 8 characters and one special character.':
+    'Ang password ay dapat may hindi bababa sa 8 karakter at isang espesyal na karakter.',
+  'Password must contain one uppercase letter and one special character.':
+    'Ang password ay dapat may isang malaking titik at isang espesyal na karakter.',
+  'Password must contain at least 8 characters, one uppercase letter and one special character.':
+    'Ang password ay dapat may hindi bababa sa 8 karakter, isang malaking titik at isang espesyal na karakter.',
   'Password must be 72 characters or fewer.':
     'Ang password ay dapat 72 karakter o mas kaunti.',
 };
