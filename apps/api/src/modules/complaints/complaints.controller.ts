@@ -23,9 +23,8 @@ import {
   MinLength,
 } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { checkSignature } from '../../common/file-signature';
 import { COMPLAINT_ACTIONS, ComplaintsService } from './complaints.service';
-
-const EVIDENCE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4'];
 
 class FileComplaintDto {
   @IsString()
@@ -90,8 +89,9 @@ export class ComplaintsController {
     @CurrentUser() user: RequestUser,
     @UploadedFile() evidence?: Express.Multer.File,
   ) {
-    if (evidence && !EVIDENCE_MIMES.includes(evidence.mimetype)) {
-      throw new BadRequestException('Evidence must be a photo, PDF, or MP4 video.');
+    if (evidence) {
+      const sig = checkSignature(evidence.buffer, ['jpeg', 'png', 'webp', 'pdf'], evidence.mimetype);
+      if (!sig.ok) throw new BadRequestException(sig.reason);
     }
     return this.complaints.fileComplaint(user, { ...dto, evidence });
   }

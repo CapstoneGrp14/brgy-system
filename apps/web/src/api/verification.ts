@@ -76,8 +76,8 @@ export function useVerificationQueue() {
 export function useDecideVerification() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; approve: boolean }) =>
-      (await api.post(`/verification/${input.id}/decide`, { approve: input.approve })).data,
+    mutationFn: async (input: { id: string; approve: boolean; note: string }) =>
+      (await api.post(`/verification/${input.id}/decide`, { approve: input.approve, note: input.note })).data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['verification'] }),
   });
 }

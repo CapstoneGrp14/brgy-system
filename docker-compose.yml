@@ -84,35 +84,46 @@ services:
       timeout: 10s
       retries: 12
 
+  # MinIO's public images were removed from Docker Hub, so the object store is
+  # SeaweedFS's S3 gateway instead. Service name and MINIO_* env vars are kept:
+  # it speaks the same S3 API with SigV4, so presigned links sign identically.
   minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: brgy-minio
-      MINIO_ROOT_PASSWORD: brgy_dev_password
-    ports:
-      - "9002:9000" # host 9002 to avoid clashes with other local projects
-      - "9003:9001" # console → http://localhost:9003
+    image: chrislusf/seaweedfs:latest
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
     volumes:
       - minio_data:/data
+      - ./deploy/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    ports:
+      - "9002:9000" # S3 API, host 9002 to avoid clashes with other local projects
+      - "9003:8888" # filer UI → http://localhost:9003
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      # S3 port only; 127.0.0.1 not "localhost" — seaweed binds IPv4 and the
+      # image resolves localhost to [::1], which refuses the connection.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/status"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 10s
 
+  # One-shot bucket creation. Uses the AWS CLI rather than `mc` so it needs no
+  # node_modules (the api installs those) and no MinIO-only tooling.
   minio-init:
-    image: minio/mc:latest
+    image: amazon/aws-cli:latest
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: brgy-minio
+      AWS_SECRET_ACCESS_KEY: brgy_dev_password
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 brgy-minio brgy_dev_password; do
-        echo 'waiting for minio…'; sleep 2;
+      for b in uploads documents; do
+        aws --endpoint-url http://minio:9000 s3 mb s3://$$b 2>/dev/null ||
+        echo \"bucket $$b already exists\";
       done &&
-      mc mb -p local/uploads local/documents &&
-      echo 'MinIO buckets ready'
+      aws --endpoint-url http://minio:9000 s3 ls &&
+      echo 'S3 buckets ready'
       "
 
   mailhog:

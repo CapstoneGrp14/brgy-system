@@ -4,7 +4,7 @@ import { downloadArtaCsv, fetchArtaSummary, useArtaReport } from '../../api/anal
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { REQUEST_ICON, STATUS_PILL, fmtDate } from '../../components/ui/status';
-import { btnPrimary, card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { btnPrimary, card, cols, input, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
@@ -18,11 +18,35 @@ export function ArtaReportPage() {
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryBusy, setSummaryBusy] = useState(false);
 
-  const list = data?.items ?? [];
+  // Row filters: the report is an audit document, so staff need to answer
+  // "which ones breached?" and "where is this resident's request?" without
+  // exporting to a spreadsheet first. Filtering is client-side because the
+  // year query already bounds the row count.
+  const [query, setQuery] = useState('');
+  const [outcome, setOutcome] = useState<'all' | 'ontime' | 'late' | 'overdue' | 'pending'>('all');
+
+  const all = data?.items ?? [];
   const years = data?.years ?? [];
+  const q = query.trim().toLowerCase();
+  const list = all.filter((r) => {
+    if (q && !`${r.resident} ${r.title}`.toLowerCase().includes(q)) return false;
+    switch (outcome) {
+      case 'ontime':
+        return r.onTime === true;
+      case 'late':
+        return r.onTime === false;
+      case 'overdue':
+        return r.overdueNow;
+      case 'pending':
+        return !r.completedAt;
+      default:
+        return true;
+    }
+  });
   const completed = list.filter((r) => r.completedAt);
   const onTime = completed.filter((r) => r.onTime).length;
   const overdueNow = list.filter((r) => r.overdueNow).length;
+  const filtered = list.length !== all.length;
 
   const openSummary = async () => {
     if (summaryBusy) return;
@@ -46,9 +70,29 @@ export function ArtaReportPage() {
             {year !== 'all' && ` ${t('in {year}', { year })}`} ·{' '}
             {completed.length ? t('{pct}% completed on time', { pct: Math.round((onTime / completed.length) * 100) }) : t('no completions yet')}
             {overdueNow > 0 && ` · ${t('{n} currently overdue', { n: overdueNow })}`}
+            {filtered && ` · ${t('filtered from {n}', { n: all.length })}`}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('Search resident or request…')}
+            aria-label={t('Search resident or request')}
+            style={{ ...input, width: 210, marginBottom: 0 }}
+          />
+          <Select
+            value={outcome}
+            onChange={(v) => setOutcome(v as typeof outcome)}
+            options={[
+              { value: 'all', labelText: t('All outcomes') },
+              { value: 'ontime', labelText: t('Completed on time') },
+              { value: 'late', labelText: t('Completed late') },
+              { value: 'overdue', labelText: t('Currently overdue') },
+              { value: 'pending', labelText: t('Still open') },
+            ]}
+            style={{ width: 180 }}
+          />
           <Select
             value={year}
             onChange={setYear}
@@ -90,7 +134,15 @@ export function ArtaReportPage() {
           </thead>
           <tbody>
             {list.length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={7}>{year === 'all' ? t('No requests yet.') : t('No requests in {year}.', { year })}</td></tr>
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={7}>
+                {/* Distinguish "nothing matched your filter" from "no data" —
+                    otherwise a stray search reads as an empty report. */}
+                {filtered
+                  ? t('No requests match this search or filter.')
+                  : year === 'all'
+                    ? t('No requests yet.')
+                    : t('No requests in {year}.', { year })}
+              </td></tr>
             )}
             {list.map((r) => (
               <tr key={r.id} style={r.overdueNow ? { background: '#FEF5F4', boxShadow: 'inset 3px 0 0 #D64541' } : {}}>

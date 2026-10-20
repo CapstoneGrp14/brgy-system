@@ -27,3 +27,6 @@ docs/
 deploy/*
 !deploy/nginx/
 deploy/nginx/certs/
+# S3 identity config for the local object store — dev-only credentials that
+# must be tracked, since docker-compose.yml bind-mounts this exact path.
+!deploy/seaweedfs/

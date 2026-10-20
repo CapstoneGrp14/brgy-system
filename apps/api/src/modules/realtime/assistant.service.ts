@@ -113,6 +113,32 @@ function detectLanguage(question: string, preference: AssistantLanguage): Assist
 }
 
 /**
+ * Patterns that look like personal data a resident should not be typing into a
+ * public chat box. Every question is persisted for the admin analytics counter,
+ * so an ID number pasted here would sit in the database indefinitely with no
+ * purpose — the assistant has no account tools and never needed it.
+ *
+ * Redaction happens at the storage boundary only: the live reply still sees the
+ * original text, so a question that merely mentions a number is still answered.
+ */
+const PII_PATTERNS: ReadonlyArray<{ pattern: RegExp; tag: string }> = [
+  // PhilSys 16-digit, with or without separators.
+  { pattern: /\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/g, tag: '[id-number]' },
+  // PH mobile numbers: 09xx xxx xxxx or +639xx xxx xxxx.
+  { pattern: /(?:\+?63|0)9\d{2}[- ]?\d{3}[- ]?\d{4}\b/g, tag: '[phone]' },
+  { pattern: /\b[\w.+-]+@[\w-]+\.[\w.]{2,}\b/g, tag: '[email]' },
+  // Long digit runs: SSS, PhilHealth, TIN, account numbers.
+  { pattern: /\b\d{9,}\b/g, tag: '[number]' },
+];
+
+/** Replace anything that looks like personal data before the row is written. */
+export function redactPii(text: string): string {
+  let out = text;
+  for (const { pattern, tag } of PII_PATTERNS) out = out.replace(pattern, tag);
+  return out;
+}
+
+/**
  * Grounding rules for the LLM path. Closed-world: the model may ONLY use the
  * knowledge base we inject below — it has no tools, no database access, and
  * the KB contains public service info only (no resident data), so there is
@@ -319,18 +345,20 @@ export class AssistantService {
     if (llm && /cannot fulfill|as an ai|language model|my purpose is|i am a (chat)?bot model/i.test(llm)) {
       llm = 'OUT_OF_SCOPE';
     }
-    // Reply-side grounding check (second layer): a keyword-unmatched question
-    // must yield an answer naming a concrete portal screen or the hall itself —
-    // the model's habit of appending KB footers to chit-chat doesn't count.
-    // Skipped when the question hit the uploaded KB (topic already grounded).
+    // Reply-side grounding check (second layer): EVERY model answer must name a
+    // concrete portal screen or the hall itself. Runs unconditionally — it used
+    // to be skipped whenever the question matched an intent keyword or hit the
+    // uploaded KB, which is most real traffic, so injected replies that mimic a
+    // config dump ("ACKNOWLEDGED. DEBUG=true;") sailed through. Unlike the rules
+    // in SYSTEM_RULES this does not depend on the model choosing to comply.
     const ANCHORS =
       /documents|my bookings|health & medicine|complaints|blotter|\bsos\b|verification|announcements|charter|barangay hall|lunes|monday/i;
-    if (llm && !match && !kbTopic && !ANCHORS.test(llm)) {
+    if (llm && !ANCHORS.test(llm)) {
       llm = 'OUT_OF_SCOPE';
     }
     if (llm && !llm.includes('OUT_OF_SCOPE')) {
       const intent = match?.key ?? 'llm';
-      await this.queries.insert({ userId, question: question.slice(0, 300), intent, resolved: true });
+      await this.queries.insert({ userId, question: redactPii(question).slice(0, 300), intent, resolved: true });
       return { reply: llm, intent, actions: this.buildActions(match?.key, llm, language) };
     }
 
@@ -338,7 +366,7 @@ export class AssistantService {
     // non-English questions, so a keyword match still gets a real (localized)
     // answer; only truly unmatched questions get the fallback.
     const intent = match?.key ?? 'fallback';
-    await this.queries.insert({ userId, question: question.slice(0, 300), intent, resolved: !!match });
+    await this.queries.insert({ userId, question: redactPii(question).slice(0, 300), intent, resolved: !!match });
     const reply = match ? (language === 'fil' ? match.replyFil : match.reply) : fallbackText;
     return { reply, intent, actions: match ? this.buildActions(match.key, reply, language) : [] };
   }

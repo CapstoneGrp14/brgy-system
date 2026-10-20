@@ -1,4 +1,5 @@
 import type { AuthUser } from '@brgy/shared';
+import { Icon } from '../ui/Icon';
 import { Role, VerificationStatus } from '@brgy/shared';
 import { useState, type MouseEvent } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -263,7 +264,7 @@ export function Sidebar({
                   color: item.sos ? '#FF8B7E' : isActive ? '#fff' : '#C2CFE0',
                 })}
               >
-                <span style={{ flexShrink: 0 }}>{item.icon}</span>
+                <Icon name={item.icon} size={19} />
                 {!collapsed && (
                   <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'break-word' }}>
                     {t(item.labelText)}

@@ -1,17 +1,27 @@
 import type { CSSProperties } from 'react';
 
-/** Shared style tokens lifted from the approved design. */
+/**
+ * Shared style tokens lifted from the approved design.
+ *
+ * Type sizes were raised one step across the board (roughly +1px) after panel
+ * feedback: a large share of barangay residents are senior citizens, and the
+ * original 11–12.5px labels are hard to read on a phone held at arm's length.
+ * Everything scales from these tokens, so the bump stays proportional.
+ */
 
 export const card: CSSProperties = {
   background: '#fff',
-  border: '1px solid #E3E8F0',
-  borderRadius: 12,
-  boxShadow: '0 1px 2px rgba(23,43,77,.05)',
+  border: '1px solid #E8EDF4',
+  borderRadius: 14,
+  // Two layers: a tight contact shadow plus a wide, very soft ambient one.
+  // Reads as depth rather than as a drawn outline, and stays subtle on the
+  // light grey page background.
+  boxShadow: '0 1px 2px rgba(23,43,77,.04), 0 8px 24px -18px rgba(23,43,77,.28)',
 };
 
 export const label: CSSProperties = {
   display: 'block',
-  fontSize: 12.5,
+  fontSize: 13.5,
   fontWeight: 700,
   color: '#33415E',
   marginBottom: 6,
@@ -20,9 +30,9 @@ export const label: CSSProperties = {
 export const input: CSSProperties = {
   width: '100%',
   padding: '11px 13px',
-  border: '1.5px solid #DFE5EE',
-  borderRadius: 9,
-  fontSize: 14,
+  border: '1.5px solid #E2E8F2',
+  borderRadius: 10,
+  fontSize: 15,
   // Native inputs don't inherit these — set them so inputs match the 44px
   // Select/DatePicker triggers exactly (side-by-side rows stay level).
   lineHeight: 1.45,
@@ -36,10 +46,11 @@ export const btnPrimary: CSSProperties = {
   width: '100%',
   padding: '12px 0',
   border: 'none',
-  borderRadius: 9,
+  borderRadius: 10,
+  boxShadow: '0 1px 2px rgba(30,58,95,.16)',
   background: '#1E3A5F',
   color: '#fff',
-  font: '700 14.5px Poppins, sans-serif',
+  font: '700 15.5px Poppins, sans-serif',
   cursor: 'pointer',
 };
 
@@ -55,7 +66,7 @@ export const errorText: CSSProperties = {
   color: '#C0392B',
   borderRadius: 9,
   padding: '10px 13px',
-  fontSize: 13.5,
+  fontSize: 14.5,
   fontWeight: 600,
 };
 
@@ -64,7 +75,7 @@ export const successText: CSSProperties = {
   color: '#1F8B4C',
   borderRadius: 9,
   padding: '10px 13px',
-  fontSize: 13.5,
+  fontSize: 14.5,
   fontWeight: 600,
 };
 
@@ -82,7 +93,7 @@ export function pill(kind: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'ora
     display: 'inline-block',
     padding: '4px 10px',
     borderRadius: 999,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 700,
     lineHeight: 1.4,
     // Filipino labels run longer than the English keys. Wrapping inside the
@@ -101,7 +112,7 @@ export function pill(kind: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'ora
 export const th: CSSProperties = {
   textAlign: 'left',
   padding: '10px 12px',
-  fontSize: 11,
+  fontSize: 12,
   fontWeight: 800,
   letterSpacing: '.06em',
   color: '#7E8CA3',
@@ -116,7 +127,7 @@ export const th: CSSProperties = {
 
 export const td: CSSProperties = {
   padding: '13px 12px',
-  fontSize: 13.5,
+  fontSize: 14.5,
   color: '#2E3A52',
   borderBottom: '1px solid #F0F3F8',
   verticalAlign: 'middle',

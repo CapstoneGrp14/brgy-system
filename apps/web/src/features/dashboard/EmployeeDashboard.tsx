@@ -1,4 +1,5 @@
 import type { QueueTab, RequestDto } from '@brgy/shared';
+import { Icon, type IconName } from '../../components/ui/Icon';
 import { SLA_META } from '@brgy/shared';
 import { useState } from 'react';
 import {
@@ -6,13 +7,15 @@ import {
   useAdvanceRequest,
   useQueue,
   useQueueStats,
+  type QueueDeadline,
   useUploadSignedDocument,
 } from '../../api/requests';
 import { fetchPrintUrl } from '../../api/templates';
 import { useComplaintsQueue } from '../../api/complaints';
 import { useInventory } from '../../api/inventory';
 import { useVerificationQueue } from '../../api/verification';
-import { card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { card, cols, input, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { Select } from '../../components/ui/Select';
 import { FileDropzone } from '../../components/ui/FileDropzone';
 import { DetailRow, Modal } from '../../components/ui/Modal';
 import { REQUEST_ICON, STATUS_PILL, deadlineChip, fmtDate, fmtDateLong } from '../../components/ui/status';
@@ -30,10 +33,15 @@ const TABS: Array<{ id: QueueTab; labelText: string }> = [
 export function EmployeeDashboard() {
   const [tab, setTab] = useState<QueueTab>('all');
   const [page, setPage] = useState(1);
+  // Filters live beside the tabs and are applied server-side — the queue is
+  // paginated at five rows, so narrowing the visible page would misrepresent
+  // how much work is actually outstanding.
+  const [search, setSearch] = useState('');
+  const [deadline, setDeadline] = useState<QueueDeadline>('all');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [signedFile, setSignedFile] = useState<File | null>(null);
   const uploadSigned = useUploadSignedDocument();
-  const { data } = useQueue(tab, page);
+  const { data } = useQueue(tab, page, search, deadline);
   const { data: stats } = useQueueStats();
   const { data: verifQueue } = useVerificationQueue();
   const { data: complaintsQueue } = useComplaintsQueue();
@@ -57,7 +65,7 @@ export function EmployeeDashboard() {
   };
   const statCards = [
     {
-      icon: '📄',
+      icon: 'document' as IconName,
       labelText: 'Pending Requests (ARTA)',
       value: stats?.openTotal ?? counts.all,
       footText:
@@ -69,7 +77,7 @@ export function EmployeeDashboard() {
       footStyle: (stats?.dueSoon ?? 0) > 0 ? foot.warn : (stats?.overdue ?? 0) > 0 ? foot.bad : foot.ok,
     },
     {
-      icon: '⚖️',
+      icon: 'scale' as IconName,
       labelText: 'Active Complaints',
       value: complaintsQueue?.activeCount ?? 0,
       footText: (() => {
@@ -79,7 +87,7 @@ export function EmployeeDashboard() {
       footStyle: (complaintsQueue?.items ?? []).some((c) => c.overdue) ? foot.bad : foot.ok,
     },
     {
-      icon: '👤',
+      icon: 'user' as IconName,
       labelText: 'Pending Verification',
       value: verifQueue?.pendingCount ?? 0,
       footText:
@@ -89,7 +97,7 @@ export function EmployeeDashboard() {
       footStyle: (verifQueue?.pendingCount ?? 0) > 0 ? foot.warn : foot.ok,
     },
     {
-      icon: '📦',
+      icon: 'box' as IconName,
       labelText: 'Low-Stock Items',
       value: (inventoryItems ?? []).filter((i) => !i.isOpen).length,
       footText: (() => {
@@ -120,7 +128,7 @@ export function EmployeeDashboard() {
         {statCards.map((s) => (
           <div key={s.labelText} style={{ ...card, padding: '18px 20px' }}>
             <div style={{ fontSize: 12.5, color: '#64748B', fontWeight: 700 }}>
-              {s.icon} {t(s.labelText)}
+              <Icon name={s.icon} size={17} style={{ display: 'inline-block', verticalAlign: '-3px', marginRight: 7 }} />{t(s.labelText)}
             </div>
             <div style={{ font: '800 28px Poppins, sans-serif', color: '#1E3A5F', marginTop: 6 }}>{s.value}</div>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 8, ...s.footStyle }}>{s.footText}</div>
@@ -175,6 +183,48 @@ export function EmployeeDashboard() {
               {t('Export CSV')}
             </button>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', margin: '4px 0 14px' }}>
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder={t('Search request or resident…')}
+            aria-label={t('Search request or resident')}
+            style={{ ...input, width: isMobile ? '100%' : 260, marginBottom: 0 }}
+          />
+          <Select
+            value={deadline}
+            onChange={(v) => {
+              setDeadline(v as QueueDeadline);
+              setPage(1);
+            }}
+            options={[
+              { value: 'all', labelText: t('All deadlines') },
+              { value: 'overdue', labelText: t('Overdue') },
+              { value: 'soon', labelText: t('Due soon (24h)') },
+              { value: 'ontrack', labelText: t('On track') },
+            ]}
+            style={{ width: isMobile ? '100%' : 190 }}
+          />
+          {(search.trim() || deadline !== 'all') && (
+            <button
+              onClick={() => {
+                setSearch('');
+                setDeadline('all');
+                setPage(1);
+              }}
+              style={{ background: 'none', border: 'none', color: '#2E66D0', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: '6px 2px' }}
+            >
+              {t('Clear filters')}
+            </button>
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: 12.5, color: '#8A97AB' }}>
+            {t('{n} matching', { n: data?.total ?? 0 })}
+          </span>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -265,7 +315,11 @@ export function EmployeeDashboard() {
               {(data?.items ?? []).length === 0 && (
                 <tr>
                   <td style={{ ...td, color: '#8A97AB' }} colSpan={6}>
-                    {t('Queue is clear — no open requests in this tab. 🎉')}
+                    {/* "Nothing matched" must not read as "queue is clear" —
+                        staff would conclude the backlog is empty. */}
+                    {search.trim() || deadline !== 'all'
+                      ? t('No requests match this search or filter.')
+                      : t('Queue is clear — no open requests in this tab. 🎉')}
                   </td>
                 </tr>
               )}

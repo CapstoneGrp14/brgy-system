@@ -86,8 +86,14 @@ export function ResidentComplaintsPage() {
           <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>
             {t('File a Complaint (Complainant Statement)')}
           </h2>
-          <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 18px' }}>
+          <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 10px' }}>
             {t('Your complaint enters Katarungang Pambarangay mediation with a 20-day clock.')}
+          </p>
+          {/* Stated before they type, not after submission: the barangay cannot
+              mediate serious crimes, and a resident who files one here would
+              otherwise wait on a mediation queue instead of calling the police. */}
+          <p style={{ fontSize: 12.5, lineHeight: 1.6, color: '#8A5B10', background: '#FFF6E5', border: '1px solid #F0DCB4', borderRadius: 8, padding: '10px 13px', margin: '0 0 18px' }}>
+            {t('The barangay settles disputes between neighbours. Serious crimes — such as killings, rape, kidnapping, drugs, or arson — are outside its authority and must go straight to the police, or call 911 if anyone is in danger.')}
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>

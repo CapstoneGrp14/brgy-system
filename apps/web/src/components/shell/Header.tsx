@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { Icon, type IconName } from '../ui/Icon';
 import type { AuthUser } from '@brgy/shared';
 import { Role } from '@brgy/shared';
 import { useNotifications } from '../../api/requests';
@@ -7,7 +8,7 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
 import { Select } from '../ui/Select';
 
-export function Header({ title, icon, user }: { title: string; icon?: string | null; user: AuthUser }) {
+export function Header({ title, icon, user }: { title: string; icon?: IconName | null; user: AuthUser }) {
   const toggleNotif = useUiStore((s) => s.toggleNotif);
   const openMobileNav = useUiStore((s) => s.openMobileNav);
   const toast = useUiStore((s) => s.toast);
@@ -52,7 +53,9 @@ export function Header({ title, icon, user }: { title: string; icon?: string | n
           overflowWrap: 'normal',
         }}
       >
-        {icon ? `${icon} ` : ''}
+        {/* Icon sits inline with the title; align by baseline so a 20px glyph
+            doesn't ride above the cap height of the heading. */}
+        {icon && <Icon name={icon} size={20} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }} />}
         {t(title)}
       </h1>
       {subtitle && !isMobile && <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 2 }}>{subtitle}</div>}

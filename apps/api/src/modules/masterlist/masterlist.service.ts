@@ -31,9 +31,38 @@ interface SkippedRow {
 export interface ImportOutcome {
   added: number;
   updated: number;
+  /** Matched an existing resident under a changed surname (e.g. marriage). */
+  renamed: number;
   deactivated: number;
   skipped: number;
   skippedRows: SkippedRow[];
+}
+
+
+/** Name parts, upper-cased and stripped of punctuation, for loose comparison. */
+function nameParts(name: string): string[] {
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9Ñ\s]/g, ' ')
+    .split(/\s+/)
+    .filter((p) => p.length > 1);
+}
+
+/**
+ * Is this plausibly the same person under a different name?
+ *
+ * Marriage changes a surname while the given names and birthdate stay put, so
+ * exact-name matching treats the same resident as a new person: the old record
+ * is deactivated by a refresh (locking out her account) and a fresh, unclaimed
+ * duplicate of her identity appears. Requiring the birthdate to match and at
+ * least two shared name parts catches the rename without merging two genuinely
+ * different residents who happen to share a birthday.
+ */
+function looksLikeSamePerson(a: string, b: string): boolean {
+  const pa = nameParts(a);
+  const pb = nameParts(b);
+  const shared = pa.filter((p) => pb.includes(p));
+  return shared.length >= 2;
 }
 
 /** Drop the spreadsheet line number — the write path doesn't care about it. */
@@ -65,6 +94,21 @@ export class MasterlistService {
       wasActive: record.isActive,
       note,
       changedBy,
+    });
+  }
+
+  /** Keep the portal account's display name in step with a census rename. */
+  private async renameLinkedAccount(censusRecordId: string, newName: string, oldName: string): Promise<void> {
+    const profile = await this.profiles.findOne({
+      where: { censusRecordId },
+      relations: { user: true },
+    });
+    if (!profile?.user) return;
+    await this.users.update({ id: profile.user.id }, { fullName: newName });
+    this.audit.log({
+      actorLabel: 'Census Refresh',
+      action: 'Renamed Resident Account',
+      target: `${oldName} → ${newName}`,
     });
   }
 
@@ -384,18 +428,52 @@ export class MasterlistService {
     const skippedRows: SkippedRow[] = [];
     let added = 0;
     let updated = 0;
+    let renamed = 0;
 
     for (const input of checked.rows) {
-      const existing = await this.census
+      let existing = await this.census
         .createQueryBuilder('c')
         .leftJoinAndSelect('c.household', 'h')
         .where('LOWER(TRIM(c.full_name)) = LOWER(:name)', { name: input.fullName })
         .andWhere(input.birthdate ? 'c.birthdate = :bd' : '1=1', { bd: input.birthdate })
         .getOne();
 
+      // Exact name missed. Before concluding this is a new resident, check for
+      // the same birthdate under a different surname — a marriage, not a new
+      // person. Without this the old record is deactivated on refresh (locking
+      // the resident out) while an unclaimed duplicate of her appears.
+      let renamedFrom: string | null = null;
+      if (!existing && input.birthdate) {
+        const sameBirthday = await this.census
+          .createQueryBuilder('c')
+          .leftJoinAndSelect('c.household', 'h')
+          .where('c.birthdate = :bd', { bd: input.birthdate })
+          .andWhere('c.is_active = 1')
+          .getMany();
+        const candidates = sameBirthday.filter((c) => looksLikeSamePerson(c.fullName, input.fullName));
+        if (candidates.length === 1) {
+          existing = candidates[0];
+          renamedFrom = candidates[0].fullName;
+        } else if (candidates.length > 1) {
+          // Two plausible matches is a judgement call, not an import decision.
+          skippedRows.push({
+            row: input.line,
+            name: input.fullName,
+            reason: `Matches ${candidates.length} existing residents with the same birthdate — resolve this record at the Barangay Hall before importing.`,
+          });
+          continue;
+        }
+      }
+
       if (existing) {
         seenIds.add(existing.id);
         if (mode === 'refresh') {
+          if (renamedFrom) {
+            await this.snapshot(existing, `Renamed from "${renamedFrom}" during census refresh`, `${actor.fullName} (Staff)`);
+            await this.census.update({ id: existing.id }, { fullName: input.fullName });
+            await this.renameLinkedAccount(existing.id, input.fullName, renamedFrom);
+            renamed++;
+          }
           await this.updateFromCensus(existing, toRecordInput(input), syncedAt, `${actor.fullName} (Staff)`);
           updated++;
         } else {
@@ -427,7 +505,28 @@ export class MasterlistService {
         .where('c.is_active = 1')
         .andWhere(seenIds.size ? 'c.id NOT IN (:...seen)' : '1=1', { seen: [...seenIds] })
         .getMany();
+      // A claimed record belongs to someone who has already registered and
+      // verified. Deactivating it signs them out of the portal, and the trigger
+      // would be a row missing from a spreadsheet — which validation cannot
+      // distinguish from a clerical deletion. Flag those for staff instead of
+      // acting on them; unclaimed records still deactivate automatically.
+      const claimedIds = new Set(
+        (
+          await this.profiles.find({
+            where: { censusRecordId: In(missing.map((r) => r.id)) },
+          })
+        ).map((p) => p.censusRecordId),
+      );
       for (const record of missing) {
+        if (claimedIds.has(record.id)) {
+          skippedRows.push({
+            row: 0,
+            name: record.fullName,
+            reason:
+              'Missing from this file but linked to a registered account — left active. Deactivate from the Masterlist if the resident has genuinely moved out.',
+          });
+          continue;
+        }
         await this.snapshot(record, 'Deactivated — missing from census refresh', `${actor.fullName} (Staff)`);
         await this.census.update({ id: record.id }, { isActive: false });
         // Census inactive → the linked portal account can no longer sign in.
@@ -440,9 +539,9 @@ export class MasterlistService {
       actorLabel: `${actor.fullName} (Staff)`,
       actorId: actor.id,
       action: mode === 'refresh' ? 'Ran Census Refresh' : 'Imported Census CSV',
-      target: `${added} added, ${updated} updated, ${deactivated} deactivated, ${skippedRows.length} skipped`,
+      target: `${added} added, ${updated} updated, ${renamed} renamed, ${deactivated} deactivated, ${skippedRows.length} skipped`,
     });
-    return { added, updated, deactivated, skipped: skippedRows.length, skippedRows };
+    return { added, updated, renamed, deactivated, skipped: skippedRows.length, skippedRows };
   }
 
   /** Refresh-update one census record and keep any linked resident profile in sync. */

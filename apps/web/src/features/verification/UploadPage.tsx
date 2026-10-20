@@ -100,6 +100,13 @@ export function UploadPage() {
             {mine?.status === 'REJECTED' && (
               <div style={{ background: '#FBE4E1', color: '#C0392B', borderRadius: 9, padding: '11px 14px', fontSize: 13.5, fontWeight: 600, marginBottom: 14 }}>
                 {t('❌ Your last submission was rejected — upload a clearer photo or a different document.')}
+                {/* Staff must now give a reason, so show it: the resident knows
+                    exactly what to fix instead of guessing at a second upload. */}
+                {mine.decisionNote && (
+                  <div style={{ fontWeight: 500, lineHeight: 1.55, marginTop: 8, paddingTop: 8, borderTop: '1px solid #F0C4BE' }}>
+                    <span style={{ fontWeight: 700 }}>{t('Reason:')}</span> {mine.decisionNote}
+                  </div>
+                )}
               </div>
             )}
 

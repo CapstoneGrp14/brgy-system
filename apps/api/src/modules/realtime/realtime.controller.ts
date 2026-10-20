@@ -12,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
 import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
@@ -121,6 +122,12 @@ export class RealtimeController {
   }
 
   // ── 591 Assistant (FR-10.1) ──
+  // Prompt-injection defenses are probabilistic, so unlimited retries beat them
+  // by definition — a 1-in-500 jailbreak is a certainty across 50k attempts.
+  // Each call also holds a 30s model request open, which on a single-server
+  // deployment is memory pressure the OOM killer resolves by reaping MySQL.
+  // 15/min is far above genuine conversational use.
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
   @Post('assistant')
   @Roles(Role.RESIDENT)
   ask(@Body() dto: AssistantAskDto, @CurrentUser() user: RequestUser) {

@@ -5,6 +5,7 @@ import {
   ComplaintStatus,
   ComplaintsQueueResponse,
   Role,
+  kpExclusion,
 } from '@brgy/shared';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -84,6 +85,19 @@ export class ComplaintsService {
       evidence?: Express.Multer.File;
     },
   ): Promise<ComplaintDto> {
+    // Katarungang Pambarangay covers neighbour disputes, not serious crimes
+    // (RA 7160 ch. 7). Filing a homicide here would park it in a 20-day
+    // mediation queue instead of sending it to the police, so refuse and say
+    // where to go. Staff can still record it as a blotter entry in person.
+    const excluded = kpExclusion(`${input.description} ${input.respondentName}`);
+    if (excluded) {
+      throw new BadRequestException(
+        `A report involving ${excluded} is outside the barangay's authority and cannot be settled by mediation. ` +
+          `Please report it directly to the Philippine National Police, or call 911 if anyone is in danger. ` +
+          `For urgent help, use Emergency SOS or visit the Barangay Hall and ask for a blotter entry.`,
+      );
+    }
+
     let evidenceUploadId: string | null = null;
     if (input.evidence) {
       const key = `evidence/${user.id}/${randomUUID()}`;

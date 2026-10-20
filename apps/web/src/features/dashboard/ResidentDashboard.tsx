@@ -1,4 +1,5 @@
 import { BookingStatus, RequestStatus, SLA_META, VerificationStatus } from '@brgy/shared';
+import { Icon, type IconName } from '../../components/ui/Icon';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAnnouncements } from '../../api/announcements';
@@ -20,15 +21,15 @@ const ACTIVE = [
   RequestStatus.ESCALATED,
 ];
 
-const QUICK_ACTIONS: Array<{ icon: string; labelText: string; to: string; lock?: boolean }> = [
-  { icon: '📋', labelText: 'Request Barangay Clearance', to: '/resident/documents' },
-  { icon: '✏️', labelText: 'File a Complaint', to: '/resident/complaints' },
-  { icon: '🏥', labelText: 'Request Free Medicine', to: '/resident/health' },
-  { icon: '📅', labelText: 'Book Court / Venue', to: '/resident/bookings' },
-  { icon: '🖨️', labelText: 'Free Printing (Students)', to: '/resident/student' },
-  { icon: '🧾', labelText: 'Indigency Certificate', to: '/resident/documents', lock: true },
-  { icon: '📜', labelText: 'FTJS Certification', to: '/resident/documents', lock: true },
-  { icon: '📷', labelText: 'Request CCTV Footage', to: '/resident/complaints' },
+const QUICK_ACTIONS: Array<{ icon: IconName; labelText: string; to: string; lock?: boolean }> = [
+  { icon: 'document', labelText: 'Request Barangay Clearance', to: '/resident/documents' },
+  { icon: 'scale', labelText: 'File a Complaint', to: '/resident/complaints' },
+  { icon: 'pill', labelText: 'Request Free Medicine', to: '/resident/health' },
+  { icon: 'calendar', labelText: 'Book Court / Venue', to: '/resident/bookings' },
+  { icon: 'student', labelText: 'Free Printing (Students)', to: '/resident/student' },
+  { icon: 'report', labelText: 'Indigency Certificate', to: '/resident/documents', lock: true },
+  { icon: 'book', labelText: 'FTJS Certification', to: '/resident/documents', lock: true },
+  { icon: 'shield', labelText: 'Request CCTV Footage', to: '/resident/complaints' },
 ];
 
 export function ResidentDashboard() {
@@ -196,7 +197,9 @@ export function ResidentDashboard() {
                 }
                 style={{ ...card, padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
               >
-                <div style={{ fontSize: 26 }}>{isLocked ? '🔒' : q.icon}</div>
+                <div style={{ color: isLocked ? '#9AA6B7' : '#1E3A5F' }}>
+                  <Icon name={isLocked ? 'lock' : q.icon} size={26} />
+                </div>
                 <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 10, lineHeight: 1.35, color: isLocked ? '#9AA6B7' : '#33415E' }}>
                   {t(q.labelText)}
                 </div>

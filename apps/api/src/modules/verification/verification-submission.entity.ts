@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { OcrFieldResult } from '@brgy/shared';
 import { User } from '../users/user.entity';
 import { Upload } from './upload.entity';
 
@@ -45,6 +46,10 @@ export class VerificationSubmission {
   @Column({ name: 'match_score', type: 'int', nullable: true })
   matchScore: number | null;
 
+  /** Per-field checklist behind the score. Null for PDFs and older rows. */
+  @Column({ name: 'ocr_fields', type: 'json', nullable: true })
+  ocrFields: OcrFieldResult[] | null;
+
   @Column({ name: 'ocr_verdict', type: 'varchar', length: 20, default: 'PENDING' })
   ocrVerdict: OcrVerdict;
 
@@ -57,6 +62,14 @@ export class VerificationSubmission {
 
   @Column({ name: 'decided_at', type: 'datetime', nullable: true })
   decidedAt: Date | null;
+
+  /**
+   * Why the decision was made. Required from staff at decision time — a
+   * rejection reason is shown to the resident so they know what to fix, and
+   * both outcomes carry it into the audit log.
+   */
+  @Column({ name: 'decision_note', type: 'varchar', length: 500, nullable: true })
+  decisionNote: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

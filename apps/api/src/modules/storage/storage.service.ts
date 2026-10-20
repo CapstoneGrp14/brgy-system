@@ -65,8 +65,14 @@ export class StorageService {
     });
   }
 
-  /** Presigned download URL (default 7 days — the max MinIO allows). */
-  presignedGet(bucket: string, key: string, expirySeconds = 7 * 24 * 3600): Promise<string> {
+  /**
+   * Presigned download URL. These links are unauthenticated bearer capabilities —
+   * anyone holding one gets the object — so the default is one hour rather than
+   * the 7-day maximum. Callers serving resident ID scans or complaint evidence
+   * already pass 3600 explicitly; the short default means a caller that forgets
+   * inherits a safe lifetime instead of a week-long one.
+   */
+  presignedGet(bucket: string, key: string, expirySeconds = 3600): Promise<string> {
     return this.publicClient.presignedGetObject(bucket, key, expirySeconds);
   }
 }

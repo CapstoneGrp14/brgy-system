@@ -25,12 +25,17 @@ import {
   QueueQueryDto,
 } from './requests.dto';
 
-const PRINT_MIMES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+import { checkSignature } from '../../common/file-signature';
 import { RequestsService } from './requests.service';
+
+/**
+ * Print uploads are opened by barangay staff on their own machines, so the type
+ * is verified from the file's leading bytes rather than the client-supplied
+ * header. Legacy .doc is excluded deliberately — it is the format that carries
+ * auto-executing macros, and checkSignature() names it in the error so the
+ * resident knows to re-save rather than guessing.
+ */
+const PRINT_KINDS = ['pdf', 'docx'] as const;
 
 @Controller('requests')
 export class RequestsController {
@@ -68,8 +73,9 @@ export class RequestsController {
     @Body() dto: CreatePrintingRequestDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    if (file && !PRINT_MIMES.includes(file.mimetype)) {
-      throw new BadRequestException('Upload a PDF or Word document.');
+    if (file) {
+      const check = checkSignature(file.buffer, PRINT_KINDS, file.mimetype);
+      if (!check.ok) throw new BadRequestException(check.reason);
     }
     return this.requests.createPrintingRequest(user, dto, file);
   }
@@ -117,7 +123,10 @@ export class RequestsController {
   @Get('queue')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   queue(@Query() query: QueueQueryDto) {
-    return this.requests.staffQueue(query.tab ?? 'all', query.page ?? 1, query.pageSize ?? 5);
+    return this.requests.staffQueue(query.tab ?? 'all', query.page ?? 1, query.pageSize ?? 5, {
+      q: query.q,
+      deadline: query.deadline,
+    });
   }
 
   @Get('stats')

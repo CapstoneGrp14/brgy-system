@@ -22,6 +22,7 @@ import { ResidentProfile } from './modules/users/resident-profile.entity';
 import { User } from './modules/users/user.entity';
 import { OcrConsumer } from './modules/verification/ocr.consumer';
 import { Upload } from './modules/verification/upload.entity';
+import { VerificationDocType } from './modules/verification/verification-doc-type.entity';
 import { VerificationSubmission } from './modules/verification/verification-submission.entity';
 
 @Module({
@@ -45,7 +46,7 @@ import { VerificationSubmission } from './modules/verification/verification-subm
         retryDelay: 3000,
       }),
     }),
-    TypeOrmModule.forFeature([ServiceRequest, RequestEvent, ResidentProfile, CensusRecord, Household, User, DocumentTemplate, DocumentTypeSetting, VerificationSubmission, Upload, Complaint]),
+    TypeOrmModule.forFeature([ServiceRequest, RequestEvent, ResidentProfile, CensusRecord, Household, User, DocumentTemplate, DocumentTypeSetting, VerificationSubmission, VerificationDocType, Upload, Complaint]),
     ScheduleModule.forRoot(),
     QueueModule,
     AuditModule,

@@ -20,9 +20,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsBoolean, IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { Repository } from 'typeorm';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { checkSignature } from '../../common/file-signature';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QUEUES, QueueService } from '../queue/queue.service';
@@ -32,16 +33,37 @@ import { Upload } from './upload.entity';
 import { VerificationDocType } from './verification-doc-type.entity';
 import { VerificationSubmission } from './verification-submission.entity';
 
-const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-
 class SubmitDto {
   @IsUUID()
   docTypeId: string;
 }
 
+/** The decision note is staff-authored free text that lands in an HTML email,
+ *  so escape it rather than trusting the author not to type a bracket. */
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] as string,
+  );
+}
+
+/** Minimum note length. A rejection has to actually explain itself — the text is
+ *  emailed to the resident as the reason to fix — so it is held to a longer bar
+ *  than an approval comment. Enforced per-outcome in the handler. */
+const APPROVE_NOTE_MIN = 3;
+const REJECT_NOTE_MIN = 10;
+
 class DecideDto {
   @IsBoolean()
   approve: boolean;
+
+  // All three carry the same guidance: class-validator returns every failed
+  // message and clients commonly surface only the first, so a missing note must
+  // not surface as "note must be shorter than or equal to 500 characters".
+  @IsString({ message: 'Add a short comment explaining this decision.' })
+  @MinLength(APPROVE_NOTE_MIN, { message: 'Add a short comment explaining this decision.' })
+  @MaxLength(500, { message: 'Keep the comment under 500 characters.' })
+  note: string;
 }
 
 class AddDocTypeDto {
@@ -124,9 +146,10 @@ export class VerificationController {
     @CurrentUser() user: RequestUser,
   ) {
     if (!file) throw new BadRequestException('Attach your document (JPG, PNG, WebP, or PDF).');
-    if (!ALLOWED_MIMES.includes(file.mimetype)) {
-      throw new BadRequestException('Only JPG, PNG, WebP, or PDF files are accepted.');
-    }
+    // Verified by content, not by the client-declared header: these files are
+    // opened by staff during review, so a renamed executable must not reach them.
+    const sig = checkSignature(file.buffer, ['jpeg', 'png', 'webp', 'pdf'], file.mimetype);
+    if (!sig.ok) throw new BadRequestException(sig.reason);
     const docType = await this.docTypes.findOne({ where: { id: dto.docTypeId, isActive: true } });
     if (!docType) throw new BadRequestException('Pick a valid document type.');
 
@@ -176,6 +199,7 @@ export class VerificationController {
       status: s.status,
       createdAt: s.createdAt.toISOString(),
       decidedAt: s.decidedAt?.toISOString() ?? null,
+      decisionNote: s.decisionNote,
     };
   }
 
@@ -206,6 +230,15 @@ export class VerificationController {
         fileUrl: await this.storage.presignedGet(s.upload.bucket, s.upload.objectKey, 3600),
         ocrVerdict: s.ocrVerdict,
         matchScore: s.matchScore,
+        // Null for PDFs (never OCR'd) and for rows predating per-field scoring,
+        // so the UI falls back to showing the score alone.
+        ocrBreakdown: s.ocrFields
+          ? {
+              fields: s.ocrFields,
+              score: s.matchScore ?? 0,
+              missingRequired: s.ocrFields.filter((f) => f.required && !f.detected).map((f) => f.key),
+            }
+          : null,
         status: s.status,
         decidedBy: s.decidedBy,
         createdAt: s.createdAt.toISOString(),
@@ -226,9 +259,17 @@ export class VerificationController {
     if (!submission) throw new NotFoundException('Submission not found.');
     if (submission.status !== 'PENDING') throw new BadRequestException('Already decided.');
 
+    const note = dto.note.trim();
+    if (!dto.approve && note.length < REJECT_NOTE_MIN) {
+      throw new BadRequestException(
+        'Explain why this document was rejected — the resident is shown this reason so they know what to fix.',
+      );
+    }
+
     submission.status = dto.approve ? 'APPROVED' : 'REJECTED';
     submission.decidedBy = actor.fullName;
     submission.decidedAt = new Date();
+    submission.decisionNote = note;
     await this.submissions.save(submission);
 
     const webUrl = this.config.get('WEB_URL', 'http://localhost:5173');
@@ -258,7 +299,7 @@ export class VerificationController {
       // Rejection leaves the profile PENDING — the resident can resubmit.
       await this.notifications.notify(
         submission.userId,
-        '❌ Your verification was rejected — please upload a clearer or different document.',
+        `❌ Your verification was rejected — ${note}`,
         'verification',
       );
       await this.queue.publish(QUEUES.email, {
@@ -268,8 +309,9 @@ export class VerificationController {
           <p>Hi ${submission.user.fullName},</p>
           <h2 style="margin:8px 0">We couldn't verify your document</h2>
           <p>The document you submitted (<strong>${submission.docType}</strong>) was <strong>not approved</strong>
-             by barangay staff. Common reasons: the photo is blurry, details are cropped, or the
-             name doesn't match the census record.</p>
+             by barangay staff.</p>
+          <p style="background:#F0F4FA;border-left:3px solid #1E3A5F;border-radius:4px;padding:12px 16px;margin:16px 0">
+             <strong>Reason given:</strong><br />${escapeHtml(note)}</p>
           <p>Please upload a clearer photo or a different accepted ID to try again:</p>
           <p><a href="${webUrl}/resident/upload">Upload a new document</a></p>
           <p>Need help? Visit the Barangay Hall front desk (Mon–Sat, 8:00 AM–5:00 PM).</p>
@@ -277,11 +319,18 @@ export class VerificationController {
       });
     }
 
+    // OCR verdict and score alongside the reason: an audit reader sees both what
+    // the cross-check reported and why staff decided as they did. audit_logs.target
+    // is varchar(255) and the note alone may be 500, so spend what is left on it.
+    const context =
+      `Resident: ${submission.user.fullName} · ${submission.docType} · ` +
+      `OCR ${submission.ocrVerdict}${submission.matchScore === null ? '' : ` (${submission.matchScore}%)`} · Reason: `;
+    const room = 255 - context.length;
     this.audit.log({
       actorLabel: `${actor.fullName} (${actor.role === Role.ADMIN ? 'Admin' : 'Staff'})`,
       actorId: actor.id,
       action: dto.approve ? 'Verified Account via OCR' : 'Rejected Verification',
-      target: `Resident: ${submission.user.fullName}`,
+      target: (context + (note.length > room ? `${note.slice(0, Math.max(0, room - 1))}…` : note)).slice(0, 255),
     });
     return { ok: true };
   }

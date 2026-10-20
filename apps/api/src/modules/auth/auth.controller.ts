@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { Public } from '../../common/decorators';
 import {
@@ -27,6 +28,10 @@ export class AuthController {
     return this.auth.acceptInvite(dto, res);
   }
 
+  // The emailed code is protected by its own attempt lockout, but the password
+  // step had no ceiling — an attacker could guess indefinitely, and each attempt
+  // that got the password right also sent a real email. 10/min per IP.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(200)
   login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
@@ -58,6 +63,9 @@ export class AuthController {
     return this.auth.logout(req.cookies?.[REFRESH_COOKIE], res);
   }
 
+  // Unthrottled this is an email cannon: each call sends real mail to an address
+  // the caller chooses, so it can be used to flood a resident's inbox.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('forgot-password')
   @HttpCode(200)
   forgotPassword(@Body() dto: ForgotPasswordDto) {

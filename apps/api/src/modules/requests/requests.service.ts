@@ -472,17 +472,41 @@ export class RequestsService {
     return rows.map((r) => this.toDto(r, modes));
   }
 
-  async staffQueue(tab: QueueTab, page: number, pageSize: number): Promise<QueueResponse> {
+  async staffQueue(
+    tab: QueueTab,
+    page: number,
+    pageSize: number,
+    filters: { q?: string; deadline?: 'all' | 'overdue' | 'soon' | 'ontrack' } = {},
+  ): Promise<QueueResponse> {
     const base = { status: In(OPEN_STATUSES) };
     const where = tab === 'all' ? base : { ...base, type: In(TAB_TYPES[tab]) };
 
-    const [items, total] = await this.requests.findAndCount({
-      where,
-      relations: { user: true },
-      order: { dueAt: 'ASC' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
+    // Search and deadline filtering run in SQL, not on the returned page: the
+    // queue shows five rows at a time, so filtering client-side would narrow
+    // only what happens to be visible and under-report the real backlog.
+    const qb = this.requests
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.user', 'u')
+      .where({ ...where })
+      .orderBy('r.dueAt', 'ASC');
+
+    const term = filters.q?.trim();
+    if (term) {
+      qb.andWhere('(r.title LIKE :term OR u.fullName LIKE :term)', { term: `%${term}%` });
+    }
+
+    // "Due soon" mirrors the amber chip in the UI: not yet past the deadline,
+    // but inside the next 24 hours.
+    const now = new Date();
+    const soon = new Date(now.getTime() + 24 * 3600 * 1000);
+    if (filters.deadline === 'overdue') qb.andWhere('r.dueAt < :now', { now });
+    else if (filters.deadline === 'soon') qb.andWhere('r.dueAt >= :now AND r.dueAt < :soon', { now, soon });
+    else if (filters.deadline === 'ontrack') qb.andWhere('r.dueAt >= :soon', { soon });
+
+    const [items, total] = await qb
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
 
     const countFor = async (t: Exclude<QueueTab, 'all'>) =>
       this.requests.count({ where: { ...base, type: In(TAB_TYPES[t]) } });

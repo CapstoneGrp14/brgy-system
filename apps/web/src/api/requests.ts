@@ -18,11 +18,20 @@ export function useCreateDocumentRequest() {
   });
 }
 
-export function useQueue(tab: QueueTab, page: number) {
+export type QueueDeadline = 'all' | 'overdue' | 'soon' | 'ontrack';
+
+export function useQueue(tab: QueueTab, page: number, q = '', deadline: QueueDeadline = 'all') {
+  const term = q.trim();
   return useQuery({
-    queryKey: ['requests', 'queue', tab, page],
+    queryKey: ['requests', 'queue', tab, page, term, deadline],
     queryFn: async () =>
-      (await api.get<QueueResponse>('/requests/queue', { params: { tab, page, pageSize: 5 } })).data,
+      (
+        await api.get<QueueResponse>('/requests/queue', {
+          // Omitted rather than sent empty so the cache key and the request
+          // stay identical to the unfiltered case.
+          params: { tab, page, pageSize: 5, ...(term ? { q: term } : {}), ...(deadline !== 'all' ? { deadline } : {}) },
+        })
+      ).data,
     placeholderData: (prev) => prev,
     refetchInterval: 30_000,
   });

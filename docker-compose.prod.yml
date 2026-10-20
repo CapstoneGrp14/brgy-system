@@ -109,39 +109,57 @@ services:
       timeout: 10s
       retries: 12
 
+  # MinIO withdrew its public images from every registry mid-development, so the
+  # object store is SeaweedFS's S3 gateway. Service name and MINIO_* variables
+  # are unchanged: it speaks the same S3 API with SigV4, so presigned links sign
+  # identically and no application code differs between dev and production.
   minio:
-    image: minio/minio:latest
+    image: chrislusf/seaweedfs:latest
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
     environment:
+      # Consumed by the config template below via envsubst at start-up.
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set it in .env.production}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set it in .env.production}
-      # No MINIO_BROWSER_REDIRECT_URL: the console is loopback-only (SSH tunnel),
-      # and an empty value makes MinIO exit with "scheme appears with empty host".
+    entrypoint: >
+      /bin/sh -c "
+      mkdir -p /etc/seaweedfs &&
+      printf '{\"identities\":[{\"name\":\"brgy\",\"credentials\":[{\"accessKey\":\"%s\",\"secretKey\":\"%s\"}],\"actions\":[\"Admin\",\"Read\",\"Write\",\"List\",\"Tagging\"]}]}' \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\" > /etc/seaweedfs/s3.json &&
+      exec weed server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
+      "
     ports:
       - "127.0.0.1:9002:9000"   # nginx (host) -> minio.brgy591.site
-      - "127.0.0.1:9003:9001"   # console: reach via SSH tunnel only
+      - "127.0.0.1:9003:8888"   # filer UI: reach via SSH tunnel only
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      # 127.0.0.1, not localhost: seaweed binds IPv4 and the image resolves
+      # localhost to [::1], which refuses the connection.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/status"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 10s
 
+  # Bucket creation via the AWS CLI rather than `mc` (also withdrawn).
   minio-init:
-    image: minio/mc:latest
+    image: amazon/aws-cli:latest
     restart: "no"
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set it in .env.production}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set it in .env.production}
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER:?set it in .env.production} ${MINIO_ROOT_PASSWORD:?set it in .env.production}; do
-        echo 'waiting for minio…'; sleep 2;
+      for b in uploads documents; do
+        aws --endpoint-url http://minio:9000 s3 mb s3://$$b 2>/dev/null ||
+        echo \"bucket $$b already exists\";
       done &&
-      mc mb -p local/uploads local/documents &&
-      echo 'MinIO buckets ready'
+      aws --endpoint-url http://minio:9000 s3 ls &&
+      echo 'S3 buckets ready'
       "
 
   gotenberg:

@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "brgy",
+      "credentials": [
+        {
+          "accessKey": "brgy-minio",
+          "secretKey": "brgy_dev_password"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

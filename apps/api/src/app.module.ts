@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthGuard, RolesGuard } from './common/guards';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
@@ -30,6 +31,11 @@ import { VerificationModule } from './modules/verification/verification.module';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    // Baseline ceiling per IP. Deliberately generous — dashboards poll and the
+    // resident feed loads several endpoints at once, so this is an abuse brake,
+    // not a usage quota. Routes worth protecting (sign-in, the assistant) set
+    // their own much tighter @Throttle.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -67,6 +73,9 @@ import { VerificationModule } from './modules/verification/verification.module';
     DemoModule,
   ],
   providers: [
+    // Throttler first: sign-in is unauthenticated, so brute-force attempts must
+    // be counted before the JWT guard would reject them.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

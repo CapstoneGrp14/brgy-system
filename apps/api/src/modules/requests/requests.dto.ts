@@ -83,4 +83,18 @@ export class QueueQueryDto {
   @Min(1)
   @Max(50)
   pageSize?: number;
+
+  /** Free-text match on request title or resident name. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  /**
+   * Deadline bucket. Filtered server-side because the queue is paginated —
+   * narrowing only the five visible rows would under-report the backlog.
+   */
+  @IsOptional()
+  @IsIn(['all', 'overdue', 'soon', 'ontrack'])
+  deadline?: 'all' | 'overdue' | 'soon' | 'ontrack';
 }
