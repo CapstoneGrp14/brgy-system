@@ -1,14 +1,15 @@
 import { randomUUID } from 'crypto';
 import {
+  DependantDto,
   QueueResponse,
   QueueTab,
-  RequestDto,
   ReleaseMode,
+  RequestDto,
   RequestStatus,
   RequestType,
   Role,
-  SlaClass,
   STATUS_ACTIONS,
+  SlaClass,
   VerificationStatus,
 } from '@brgy/shared';
 import {
@@ -29,6 +30,8 @@ import { DocTypesService } from '../templates/doc-types.service';
 import { QUEUES, QueueService } from '../queue/queue.service';
 import { StorageService } from '../storage/storage.service';
 import { DocumentTypeSetting } from '../templates/document-type-setting.entity';
+import { CensusRecord } from '../masterlist/census-record.entity';
+import { Household } from '../masterlist/household.entity';
 import { ResidentProfile } from '../users/resident-profile.entity';
 import { Upload } from '../verification/upload.entity';
 import { RequestEvent } from './request-event.entity';
@@ -59,6 +62,8 @@ export class RequestsService {
     @InjectRepository(DocumentTypeSetting)
     private readonly typeSettings: Repository<DocumentTypeSetting>,
     @InjectRepository(Upload) private readonly uploads: Repository<Upload>,
+    @InjectRepository(CensusRecord) private readonly census: Repository<CensusRecord>,
+    @InjectRepository(Household) private readonly households: Repository<Household>,
     private readonly inventory: InventoryService,
     private readonly docTypes: DocTypesService,
     private readonly audit: AuditService,
@@ -182,6 +187,70 @@ export class RequestsService {
     return { url };
   }
 
+
+  /** Age in whole years from an ISO birthdate. */
+  private static ageFrom(birthdate: string | Date | null): number | null {
+    if (!birthdate) return null;
+    const bd = new Date(String(birthdate).slice(0, 10) + 'T00:00:00');
+    if (Number.isNaN(bd.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - bd.getFullYear();
+    const m = now.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < bd.getDate())) age--;
+    return age;
+  }
+
+  /**
+   * Minors in the caller's household that they may file for.
+   *
+   * Only the head of the household gets a non-empty list. Members are included
+   * when they are under 18 AND hold no portal account of their own — an older
+   * teenager who has registered files for themselves, so listing them here
+   * would let the head act for someone able to act for themselves.
+   */
+  async dependantsFor(userId: string): Promise<DependantDto[]> {
+    const profile = await this.profiles.findOne({ where: { userId } });
+    if (!profile?.censusRecordId) return [];
+
+    const household = await this.households.findOne({
+      where: { headCensusRecordId: profile.censusRecordId },
+    });
+    if (!household) return []; // not a head of family
+
+    const members = await this.census.find({
+      where: { householdId: household.id, isActive: true },
+    });
+    const claimed = new Set(
+      (
+        await this.profiles.find({
+          where: { censusRecordId: In(members.map((m) => m.id)) },
+        })
+      ).map((p) => p.censusRecordId),
+    );
+
+    return members
+      .filter((m) => m.id !== profile.censusRecordId && !claimed.has(m.id))
+      .map((m) => ({ record: m, age: RequestsService.ageFrom(m.birthdate) }))
+      .filter((x): x is { record: CensusRecord; age: number } => x.age !== null && x.age < 18)
+      .map(({ record, age }) => ({ censusRecordId: record.id, fullName: record.fullName, age }));
+  }
+
+  /**
+   * Confirm the caller may file for this census record, and return its name.
+   * Re-derives the dependant list rather than trusting the submitted id, so a
+   * crafted request cannot name an arbitrary resident.
+   */
+  private async resolveBeneficiary(userId: string, censusRecordId: string): Promise<string> {
+    const allowed = await this.dependantsFor(userId);
+    const hit = allowed.find((d) => d.censusRecordId === censusRecordId);
+    if (!hit) {
+      throw new ForbiddenException(
+        'You can only request on behalf of a minor in your own household, and only as its registered head of family.',
+      );
+    }
+    return hit.fullName;
+  }
+
   async createDocumentRequest(user: RequestUser, dto: CreateDocumentRequestDto): Promise<RequestDto> {
     const meta = await this.docTypes.find(dto.documentType);
     if (!meta || !meta.isActive) throw new BadRequestException('Unknown document type.');
@@ -195,13 +264,20 @@ export class RequestsService {
       );
     }
 
+    // Filing for a minor is an authority claim, so it is checked against the
+    // household registry rather than taken from the request body.
+    const beneficiaryName = dto.beneficiaryCensusRecordId
+      ? await this.resolveBeneficiary(user.id, dto.beneficiaryCensusRecordId)
+      : null;
+
     const filedAt = new Date();
     const request = await this.requests.save(
       this.requests.create({
         userId: user.id,
+        beneficiaryCensusRecordId: dto.beneficiaryCensusRecordId ?? null,
         type: RequestType.DOCUMENT,
         subtype: meta.key,
-        title: meta.labelText,
+        title: beneficiaryName ? `${meta.labelText} — for ${beneficiaryName}` : meta.labelText,
         purpose: dto.purpose.trim(),
         slaClass: meta.sla,
         status: RequestStatus.PENDING,
@@ -214,7 +290,11 @@ export class RequestsService {
       actorLabel: `${user.fullName} (Resident)`,
       fromStatus: null,
       toStatus: RequestStatus.PENDING,
-      note: dto.purpose.trim(),
+      // Record who it was for: staff reviewing the queue need to see that the
+      // certificate names a child, not the person who filed it.
+      note: beneficiaryName
+        ? `On behalf of ${beneficiaryName} — ${dto.purpose.trim()}`
+        : dto.purpose.trim(),
     });
     this.audit.log({
       actorLabel: `${user.fullName} (Resident)`,
@@ -734,6 +814,37 @@ export class RequestsService {
   }
 
   /** Staff downloads the generated PDF for printing (seal + signature). */
+  /**
+   * Stream the generated certificate through the API rather than handing back
+   * a presigned link.
+   *
+   * The print window auto-fires the browser's print dialog, which means
+   * calling print() on the embedded document — only possible when that
+   * document is same-origin. A presigned object-store URL is a different
+   * origin, so the dialog could never be triggered for it.
+   */
+  async printDocument(
+    requestId: string,
+    actor: RequestUser,
+  ): Promise<{ buffer: Buffer; mime: string; filename: string }> {
+    const request = await this.requests.findOne({ where: { id: requestId }, relations: { user: true } });
+    if (!request) throw new NotFoundException('Request not found.');
+    if (!request.documentKey) throw new BadRequestException('No document has been generated yet.');
+
+    const bytes = await this.storage.getObject(this.storage.documentsBucket, request.documentKey);
+    this.audit.log({
+      actorLabel: `${actor.fullName} (${actor.role === Role.ADMIN ? 'Admin' : 'Staff'})`,
+      actorId: actor.id,
+      action: 'Opened Document for Printing',
+      target: `${request.title} — ${request.user.fullName}`,
+    });
+    return {
+      buffer: bytes,
+      mime: 'application/pdf',
+      filename: `${request.title.replace(/[^A-Za-z0-9 .-]/g, '')}.pdf`,
+    };
+  }
+
   async printUrl(requestId: string, actor: RequestUser): Promise<{ url: string }> {
     const request = await this.requests.findOne({ where: { id: requestId }, relations: { user: true } });
     if (!request) throw new NotFoundException('Request not found.');

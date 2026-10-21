@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { AnnouncementsService } from './announcements.service';
 
 const toBool = ({ value }: { value: unknown }) => value === true || value === 'true';
@@ -61,6 +62,7 @@ class UpdateAnnouncementDto extends PostAnnouncementDto {
 }
 
 @Controller('announcements')
+@RequiresModule('announcements')
 export class AnnouncementsController {
   constructor(private readonly announcements: AnnouncementsService) {}
 

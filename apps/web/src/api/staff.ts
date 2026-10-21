@@ -1,8 +1,11 @@
+import type { StaffModule } from '@brgy/shared';
 import type { Role, StaffInviteRow } from '@brgy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
 export interface StaffMember {
+  /** Modules this account may use; null = unrestricted. Admins are always null. */
+  allowedModules: StaffModule[] | null;
   id: string;
   fullName: string;
   email: string;
@@ -50,6 +53,16 @@ export function useDemoteStaff() {
      *  becomes a resident in name only (no verification, no services). */
     mutationFn: async (email: string) =>
       (await api.post<{ ok: boolean; linked: boolean }>('/staff/demote', { email })).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['staff'] }),
+  });
+}
+
+/** Set an employee's module grant. null restores unrestricted access. */
+export function useSetStaffModules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; modules: StaffModule[] | null }) =>
+      (await api.post(`/staff/${input.id}/modules`, { modules: input.modules })).data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['staff'] }),
   });
 }

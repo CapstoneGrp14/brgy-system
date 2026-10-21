@@ -81,7 +81,17 @@ export function UploadPage() {
             />
 
             <label style={label}>{t('Supporting Document')}</label>
-            <FileDropzone file={file} onFile={setFile} disabled={busyState} style={{ marginBottom: 16 }} />
+            {/* Photos only — the server enforces the same list. A PDF cannot be
+                read by the census cross-check, so accepting one would just send
+                the resident into a slower manual queue. */}
+            <FileDropzone
+              file={file}
+              onFile={setFile}
+              disabled={busyState}
+              accept="image/jpeg,image/png,image/webp"
+              hint={t('Photo of your ID — JPG, PNG, or WebP · max 8 MB')}
+              style={{ marginBottom: 16 }}
+            />
 
             {ocrRunning && (
               <div style={{ background: '#EAF1FC', color: '#21409A', borderRadius: 9, padding: '11px 14px', fontSize: 13.5, fontWeight: 600, marginBottom: 14, animation: 'pulse 1.4s ease infinite' }}>

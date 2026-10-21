@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAnnouncements } from '../../api/announcements';
+import { disablePush, enablePush, pushState, type PushState } from '../../api/push';
 import { card } from '../../components/ui/kit';
 import { Select } from '../../components/ui/Select';
 import { fmtDateLong } from '../../components/ui/status';
 import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useUiStore } from '../../stores/ui';
 
 /** Resident announcements feed (FR-9.3) with a year filter. */
 export function AnnouncementsFeedPage() {
@@ -15,8 +17,67 @@ export function AnnouncementsFeedPage() {
   const items = (feed?.items ?? []).filter((a) => a.channelBanner || a.urgent);
   const years = feed?.years ?? [];
 
+  // Opt-in for urgent push. Shown only where it can actually work: browsers
+  // without support, or a deployment with no VAPID keys, get nothing rather
+  // than a control that silently fails.
+  const toast = useUiStore((st) => st.toast);
+  const [push, setPush] = useState<PushState>('unsupported');
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => {
+    void pushState().then(setPush);
+  }, []);
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      const next = push === 'granted' ? await disablePush() : await enablePush();
+      setPush(next);
+      if (next === 'granted') toast(t('🔔 Urgent alerts on — we will notify this device.'));
+      else if (next === 'denied') toast(t('Notifications are blocked in your browser settings.'));
+      else if (push === 'granted') toast(t('🔕 Urgent alerts off for this device.'));
+    } catch {
+      toast(t('Could not change notification settings.'));
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 780 }}>
+      {(push === 'default' || push === 'granted' || push === 'denied') && (
+        <div style={{ ...card, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1E3A5F' }}>
+              {t('Urgent alerts on this device')}
+            </div>
+            <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 2, lineHeight: 1.5 }}>
+              {push === 'denied'
+                ? t('Blocked in your browser settings — allow notifications for this site to turn them on.')
+                : t('Get evacuation notices and emergency advisories even when the portal is closed.')}
+            </div>
+          </div>
+          {push !== 'denied' && (
+            <button
+              onClick={() => void togglePush()}
+              disabled={pushBusy}
+              style={{
+                flexShrink: 0,
+                background: push === 'granted' ? '#fff' : '#1E3A5F',
+                color: push === 'granted' ? '#C0392B' : '#fff',
+                border: push === 'granted' ? '1.5px solid #E8B4AE' : 'none',
+                borderRadius: 9,
+                padding: '9px 16px',
+                font: '700 12.5px Poppins, sans-serif',
+                cursor: pushBusy ? 'wait' : 'pointer',
+              }}
+            >
+              {pushBusy ? t('Working…') : push === 'granted' ? t('Turn Off') : t('Turn On')}
+            </button>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 12.5, color: '#7E8CA3', fontWeight: 700, flexShrink: 0 }}>{t('YEAR')}</span>
         <Select

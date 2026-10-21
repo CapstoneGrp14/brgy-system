@@ -28,6 +28,14 @@ export class ServiceRequest {
   user: User;
 
   @Index()
+  /**
+   * Who the document is FOR, when that is not the filer. Set only when a head
+   * of family files on behalf of a minor in their household; null on every
+   * ordinary request.
+   */
+  @Column({ name: 'beneficiary_census_record_id', type: 'varchar', length: 36, nullable: true })
+  beneficiaryCensusRecordId: string | null;
+
   @Column({ name: 'user_id', type: 'varchar', length: 36 })
   userId: string;
 

@@ -26,6 +26,7 @@ import {
 } from './requests.dto';
 
 import { checkSignature } from '../../common/file-signature';
+import { RequiresModule } from '../../common/module-access';
 import { RequestsService } from './requests.service';
 
 /**
@@ -40,6 +41,13 @@ const PRINT_KINDS = ['pdf', 'docx'] as const;
 @Controller('requests')
 export class RequestsController {
   constructor(private readonly requests: RequestsService) {}
+
+  /** Minors in the caller's household they may file for; empty unless head. */
+  @Get('dependants')
+  @Roles(Role.RESIDENT)
+  dependants(@CurrentUser() user: RequestUser) {
+    return this.requests.dependantsFor(user.id);
+  }
 
   @Post('documents')
   @Roles(Role.RESIDENT)
@@ -90,14 +98,31 @@ export class RequestsController {
       .send(file.buffer);
   }
 
+  /** Generated certificate, streamed same-origin so the tab can auto-print. */
+  @Get(':id/document-file')
+  @Roles(Role.EMPLOYEE, Role.ADMIN)
+  async documentFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+    @Res() res: Response,
+  ) {
+    const file = await this.requests.printDocument(id, user);
+    res
+      .header('Content-Type', file.mime)
+      .header('Content-Disposition', `inline; filename="${file.filename.replace(/"/g, '')}"`)
+      .send(file.buffer);
+  }
+
   @Get('printing-queue')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
+  @RequiresModule('student')
   printingQueue() {
     return this.requests.printingQueue();
   }
 
   @Get('health-queue')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
+  @RequiresModule('health')
   healthQueue() {
     return this.requests.healthQueue();
   }

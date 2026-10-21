@@ -1,3 +1,4 @@
+import type { StaffModule } from '@brgy/shared';
 import { Role } from '@brgy/shared';
 import {
   Column,
@@ -32,6 +33,13 @@ export class User {
   /** Barangay position for staff (e.g. Punong Barangay, Secretary) — used in document templates. */
   @Column({ type: 'varchar', length: 60, nullable: true })
   position: string | null;
+
+  /**
+   * Staff modules this account may use. NULL = unrestricted (every existing
+   * account); an empty array is a deliberate dashboard-only grant.
+   */
+  @Column({ name: 'allowed_modules', type: 'json', nullable: true })
+  allowedModules: StaffModule[] | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;

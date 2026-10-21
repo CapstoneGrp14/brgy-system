@@ -1,4 +1,5 @@
 import type { ComplaintDto } from '@brgy/shared';
+import { OrdinanceGuide } from './OrdinanceGuide';
 import { COMPLAINT_CATEGORIES, COMPLAINT_STATUS_META, ComplaintSource } from '@brgy/shared';
 import { useState } from 'react';
 import {
@@ -82,6 +83,9 @@ export function StaffComplaintsPage() {
         <div>
           <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>
             {t('Katarungang Pambarangay & Dispute Resolution')}
+            {/* Staff need the same reference when deciding whether a walk-in
+                case belongs here or at the police station. */}
+            <OrdinanceGuide />
           </h2>
           <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 0' }}>
             {t(

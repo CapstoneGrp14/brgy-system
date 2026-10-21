@@ -29,6 +29,7 @@ import {
   Min,
 } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { IsNotFutureDate } from '../../common/validators';
 import { MasterlistService } from './masterlist.service';
 
@@ -102,6 +103,7 @@ class ListQueryDto {
 
 @Roles(Role.EMPLOYEE, Role.ADMIN)
 @Controller('masterlist')
+@RequiresModule('masterlist')
 export class MasterlistController {
   constructor(private readonly masterlist: MasterlistService) {}
 
@@ -141,6 +143,12 @@ export class MasterlistController {
     }
     const importMode = mode === 'refresh' ? 'refresh' : 'append';
     return this.masterlist.importCsv(file.buffer.toString('utf8'), user, importMode);
+  }
+
+  /** Toggle this resident as head of their household (staff authority). */
+  @Post(':id/head')
+  setHead(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.masterlist.setHouseholdHead(id, user);
   }
 
   @Patch(':id')

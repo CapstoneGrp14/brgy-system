@@ -23,6 +23,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsBoolean, IsNotEmpty, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { Repository } from 'typeorm';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { checkSignature } from '../../common/file-signature';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -74,6 +75,7 @@ class AddDocTypeDto {
 }
 
 @Controller('verification')
+@RequiresModule('verification')
 export class VerificationController {
   constructor(
     @InjectRepository(VerificationSubmission)
@@ -145,10 +147,15 @@ export class VerificationController {
     @Body() dto: SubmitDto,
     @CurrentUser() user: RequestUser,
   ) {
-    if (!file) throw new BadRequestException('Attach your document (JPG, PNG, WebP, or PDF).');
+    if (!file) throw new BadRequestException('Attach a photo of your document (JPG, PNG, or WebP).');
+    // Photos only. A PDF cannot be OCR'd by the cross-check, so it used to
+    // land in a manual-review queue and the resident waited on a person to
+    // open it — slower for them and more work for staff. A phone photo of the
+    // ID goes through the same automated field check as everything else.
+    //
     // Verified by content, not by the client-declared header: these files are
     // opened by staff during review, so a renamed executable must not reach them.
-    const sig = checkSignature(file.buffer, ['jpeg', 'png', 'webp', 'pdf'], file.mimetype);
+    const sig = checkSignature(file.buffer, ['jpeg', 'png', 'webp'], file.mimetype);
     if (!sig.ok) throw new BadRequestException(sig.reason);
     const docType = await this.docTypes.findOne({ where: { id: dto.docTypeId, isActive: true } });
     if (!docType) throw new BadRequestException('Pick a valid document type.');

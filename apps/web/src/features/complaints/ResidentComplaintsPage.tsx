@@ -7,6 +7,7 @@ import { btnBusy, btnPrimary, card, input, label, pill, successText } from '../.
 import { DatePicker } from '../../components/ui/DatePicker';
 import { FileDropzone } from '../../components/ui/FileDropzone';
 import { Select } from '../../components/ui/Select';
+import { OrdinanceGuide } from './OrdinanceGuide';
 import { STATUS_PILL, fmtDateLong } from '../../components/ui/status';
 import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
@@ -85,6 +86,7 @@ export function ResidentComplaintsPage() {
         <div style={{ ...card, padding: '26px 28px' }}>
           <h2 style={{ margin: 0, font: '700 17px Poppins, sans-serif', color: '#1E3A5F' }}>
             {t('File a Complaint (Complainant Statement)')}
+            <OrdinanceGuide />
           </h2>
           <p style={{ fontSize: 13, color: '#64748B', margin: '6px 0 10px' }}>
             {t('Your complaint enters Katarungang Pambarangay mediation with a 20-day clock.')}

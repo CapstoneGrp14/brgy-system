@@ -38,6 +38,11 @@ x-app-base: &app-base
     # Emailed 6-digit code on sign-in; codes land in MailHog (http://localhost:8025).
     AUTH_2FA_ENABLED: ${AUTH_2FA_ENABLED:-true}
     GOTENBERG_URL: http://gotenberg:3000
+    # Web Push for urgent announcements. Empty keys disable push entirely —
+    # the rest of the broadcast (banner, in-app, email) is unaffected.
+    VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+    VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+    VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:brgy591dist6@gmail.com}
 
 services:
   mysql:

@@ -1,10 +1,11 @@
 import { Role } from '@brgy/shared';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { In, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PushService } from '../push/push.service';
 import { QUEUES, QueueService } from '../queue/queue.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { StorageService } from '../storage/storage.service';
@@ -27,10 +28,13 @@ const UPLOADS_BUCKET = 'uploads';
 
 @Injectable()
 export class AnnouncementsService {
+  private readonly logger = new Logger(AnnouncementsService.name);
+
   constructor(
     @InjectRepository(Announcement) private readonly announcements: Repository<Announcement>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly queue: QueueService,
+    private readonly push: PushService,
     private readonly notifications: NotificationsService,
     private readonly gateway: RealtimeGateway,
     private readonly storage: StorageService,
@@ -129,6 +133,25 @@ export class AnnouncementsService {
         residents.map((r) => this.notifications.notify(r.id, `🚨 ${saved.title}`, 'announcement')),
       );
       await this.notifications.notifyStaff(`🚨 Urgent broadcast sent: ${saved.title}`, 'announcement');
+
+      // ...and out to the phone. The bell and the email only reach someone who
+      // is already looking; an evacuation notice has to reach a resident whose
+      // phone is in their pocket. Deliberately not awaited into the response —
+      // posting the announcement must not fail or stall because a push service
+      // is slow, and the broadcast has already been recorded by this point.
+      void this.push
+        .sendToUsers(residents.map((r) => r.id), {
+          title: `🚨 ${saved.title}`,
+          body: input.body.slice(0, 180),
+          url: '/resident/announcements',
+          // One tag per announcement: a re-send replaces the old notification
+          // rather than stacking duplicates on the lock screen.
+          tag: `announcement-${saved.id}`,
+        })
+        .then(({ sent, pruned }) =>
+          this.logger.log(`Urgent push: ${sent} delivered, ${pruned} dead endpoint(s) pruned`),
+        )
+        .catch((err) => this.logger.warn(`Urgent push failed: ${String(err)}`));
     }
 
     const view = await this.toView(saved);

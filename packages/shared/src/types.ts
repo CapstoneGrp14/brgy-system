@@ -25,6 +25,8 @@ export interface AuthUser {
   position?: string | null;
   /** Present when the account has a resident profile. */
   verificationStatus?: VerificationStatus;
+  /** Staff modules this account may use; null/absent = unrestricted. */
+  allowedModules?: StaffModule[] | null;
 }
 
 export interface LoginResponse {
@@ -82,6 +84,8 @@ export interface MasterlistRow {
   isActive: boolean;
   /** Previous versions exist (drives the history accordion toggle). */
   hasHistory: boolean;
+  /** This record is the registered head of its household. */
+  isHouseholdHead: boolean;
 }
 
 export interface CensusHistoryRow {
@@ -128,4 +132,60 @@ export interface StaffInviteRow {
   acceptedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
+}
+
+/**
+ * Staff-side modules an administrator can grant or withhold per employee.
+ *
+ * Barangay staff hold different offices — a Lupon member has no business in the
+ * SOS map, an SK chairperson none in the resident registry — but the portal
+ * previously showed every employee the same menu. These keys name the areas an
+ * administrator can switch off for an individual account.
+ *
+ * Admins are not constrained: oversight of the whole system is the role.
+ */
+export type StaffModule =
+  | 'complaints'
+  | 'verification'
+  | 'templates'
+  | 'calendar'
+  | 'health'
+  | 'inventory'
+  | 'masterlist'
+  | 'student'
+  | 'announcements'
+  | 'sos'
+  | 'charter';
+
+export const STAFF_MODULES: ReadonlyArray<{ key: StaffModule; labelText: string; hint: string }> = [
+  { key: 'complaints',    labelText: 'Complaints & Blotter',  hint: 'File and advance Katarungang Pambarangay cases' },
+  { key: 'verification',  labelText: 'Resident Verification', hint: 'Approve or reject identity documents' },
+  { key: 'masterlist',    labelText: 'Masterlist Registry',   hint: 'View and edit the barangay census' },
+  { key: 'calendar',      labelText: 'Booking Calendar',      hint: 'Confirm facility and equipment bookings' },
+  { key: 'health',        labelText: 'Health & Medicine',     hint: 'Medicine requests and equipment lending' },
+  { key: 'inventory',     labelText: 'Inventory & Supplies',  hint: 'Stock levels and restocking' },
+  { key: 'student',       labelText: 'Student Support',       hint: 'Printing and laminating queue' },
+  { key: 'announcements', labelText: 'Post Announcement',     hint: 'Publish advisories to residents' },
+  { key: 'templates',     labelText: 'Document Types',        hint: 'Certificate templates and settings' },
+  { key: 'charter',       labelText: "Citizen's Charter",     hint: 'Published list of frontline services' },
+  { key: 'sos',           labelText: 'SOS Map',               hint: 'Live emergency alerts from residents' },
+];
+
+/** Every module — what a staff account gets when no restriction is set. */
+export const ALL_STAFF_MODULES: StaffModule[] = STAFF_MODULES.map((m) => m.key);
+
+/**
+ * Null means unrestricted, which is how every existing account behaves. An
+ * empty array is a real choice (dashboard only), so it must not be conflated
+ * with null.
+ */
+export function staffModulesFor(allowed: StaffModule[] | null | undefined): StaffModule[] {
+  return allowed ?? ALL_STAFF_MODULES;
+}
+
+export function staffCanAccess(
+  allowed: StaffModule[] | null | undefined,
+  moduleKey: StaffModule,
+): boolean {
+  return staffModulesFor(allowed).includes(moduleKey);
 }

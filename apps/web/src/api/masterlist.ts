@@ -67,6 +67,15 @@ export function useUpdateRecord() {
   });
 }
 
+/** Toggle a resident as head of their household (clears it if already head). */
+export function useSetHouseholdHead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api.post(`/masterlist/${id}/head`, {})).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['masterlist'] }),
+  });
+}
+
 export function useDeleteRecord() {
   const qc = useQueryClient();
   return useMutation({

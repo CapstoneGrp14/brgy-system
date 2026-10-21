@@ -16,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
 import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { AssistantService } from './assistant.service';
 import { ChatService } from './chat.service';
 import { SosService } from './sos.service';
@@ -90,18 +91,21 @@ export class RealtimeController {
     );
   }
 
+  @RequiresModule('sos')
   @Get('sos/active')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   active() {
     return this.sos.active();
   }
 
+  @RequiresModule('sos')
   @Get('sos/hotspot')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   hotspot() {
     return this.sos.hotspot();
   }
 
+  @RequiresModule('sos')
   @Post('sos/:id/resolve')
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   resolve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {

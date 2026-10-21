@@ -1,10 +1,9 @@
 import type { AuthUser } from '@brgy/shared';
-import { Icon } from '../ui/Icon';
 import { Role, VerificationStatus } from '@brgy/shared';
 import { useState, type MouseEvent } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { logout } from '../../api/auth';
-import { NAV } from '../../app/nav';
+import { NAV, navFor } from '../../app/nav';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
@@ -16,6 +15,13 @@ const initials = (name: string) =>
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+/** "Complaints & Blotter" -> "CB"; "Dashboard" -> "Da". */
+function navInitials(labelText: string): string {
+  const words = labelText.split(/[\s&/]+/).filter((w) => /[A-Za-z]/.test(w));
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return (words[0] ?? labelText).slice(0, 2).toUpperCase();
+}
 
 export function Sidebar({
   user,
@@ -67,7 +73,10 @@ export function Sidebar({
       style={{
         width: collapsed ? 74 : 264,
         minWidth: collapsed ? 74 : 264,
-        background: '#1E3A5F',
+        // Vertical gradient rather than a flat fill: it deepens toward the
+        // bottom so the long nav column reads as one surface, and separates
+        // the sidebar from the page without needing a border.
+        background: 'linear-gradient(180deg, #2B5181 0%, #1E3A5F 45%, #142B46 100%)',
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
@@ -236,7 +245,7 @@ export function Sidebar({
       )}
 
       <nav style={{ flex: 1, padding: '8px 0' }}>
-        {NAV[portal].map((section) => (
+        {navFor(portal, user.allowedModules).map((section) => (
           <div key={section.labelText}>
             {!collapsed && (
               <div style={{ padding: '14px 21px 6px', fontSize: 10.5, fontWeight: 800, letterSpacing: '.12em', color: '#7E93AE', lineHeight: 1.35, overflowWrap: 'break-word' }}>
@@ -264,8 +273,13 @@ export function Sidebar({
                   color: item.sos ? '#FF8B7E' : isActive ? '#fff' : '#C2CFE0',
                 })}
               >
-                <Icon name={item.icon} size={19} />
-                {!collapsed && (
+                {collapsed ? (
+                  // Collapsed rail has no room for a label, and the icons are
+                  // gone — initials keep each row identifiable and uniform.
+                  <span style={{ font: '700 12px Poppins, sans-serif', letterSpacing: '.04em' }}>
+                    {navInitials(t(item.labelText))}
+                  </span>
+                ) : (
                   <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'break-word' }}>
                     {t(item.labelText)}
                   </span>

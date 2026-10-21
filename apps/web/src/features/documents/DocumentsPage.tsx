@@ -1,6 +1,6 @@
 import { RequestType, SLA_META, VerificationStatus, type SlaClass } from '@brgy/shared';
 import { useEffect, useState } from 'react';
-import { useCreateDocumentRequest, useMyRequests } from '../../api/requests';
+import { useCreateDocumentRequest, useDependants, useMyRequests } from '../../api/requests';
 import { fetchDownloadUrl, useDocumentTypes } from '../../api/templates';
 import { btnBusy, btnPrimary, card, input, label, pill, successText } from '../../components/ui/kit';
 import { Select } from '../../components/ui/Select';
@@ -21,6 +21,10 @@ export function DocumentsPage() {
   const create = useCreateDocumentRequest();
 
   const [documentType, setDocumentType] = useState('');
+  // Heads of family may file for the minors in their household; everyone else
+  // gets an empty list and never sees the picker.
+  const { data: dependants } = useDependants();
+  const [beneficiary, setBeneficiary] = useState('');
   const [purpose, setPurpose] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -39,13 +43,18 @@ export function DocumentsPage() {
       return;
     }
     try {
-      await create.mutateAsync({ documentType, purpose: purpose.trim() });
+      await create.mutateAsync({
+        documentType,
+        purpose: purpose.trim(),
+        ...(beneficiary ? { beneficiaryCensusRecordId: beneficiary } : {}),
+      });
       setSuccessMsg(
         t('✅ Request submitted! Your ARTA clock has started ({sla}). Track it on your Dashboard.', {
           sla: t(SLA_META[selected!.sla as SlaClass].labelText).toLowerCase(),
         }),
       );
       setPurpose('');
+      setBeneficiary('');
       toast(t('📄 {label} request filed', { label: t(selected!.labelText) }));
     } catch (err: any) {
       toast(err?.response?.data?.message ?? t('Something went wrong — please try again.'));
@@ -77,6 +86,29 @@ export function DocumentsPage() {
           <p style={{ fontSize: 12.5, color: '#C96A11', fontWeight: 600, margin: '4px 0 10px' }}>
             {t('🔒 Unlocked after verification — upload your documents to get verified.')}
           </p>
+        )}
+
+        {/* Only heads of family receive a non-empty list, so this control is
+            absent for everyone else rather than shown disabled. */}
+        {(dependants?.length ?? 0) > 0 && (
+          <>
+            <label style={{ ...label, marginTop: 10 }}>{t('Who is this for?')}</label>
+            <Select
+              value={beneficiary}
+              onChange={setBeneficiary}
+              options={[
+                { value: '', labelText: t('Myself') },
+                ...(dependants ?? []).map((d) => ({
+                  value: d.censusRecordId,
+                  labelText: t('{name} — age {age}', { name: d.fullName, age: d.age }),
+                })),
+              ]}
+              style={{ marginBottom: 6 }}
+            />
+            <p style={{ fontSize: 12.5, color: '#64748B', margin: '4px 0 10px', lineHeight: 1.55 }}>
+              {t('As head of the family you may request for the minors in your household — they do not need their own account.')}
+            </p>
+          </>
         )}
 
         <label style={{ ...label, marginTop: 10 }}>{t('Purpose of Request')}</label>

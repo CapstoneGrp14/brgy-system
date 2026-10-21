@@ -158,6 +158,9 @@ export class MasterlistService {
       accountActive: claimedSet.has(r.id) ? (activeByCensus.get(r.id) ?? null) : null,
       isActive: r.isActive,
       hasHistory: historySet.has(r.id),
+      // Compared against the household's own head pointer, so the flag cannot
+      // drift from the authority the requests module actually checks.
+      isHouseholdHead: !!r.household && r.household.headCensusRecordId === r.id,
     }));
   }
 
@@ -383,6 +386,38 @@ export class MasterlistService {
    *                  household…), new people are ADDED, and records missing from the CSV
    *                  are DEACTIVATED (never deleted — accounts/history stay linked).
    */
+
+  /**
+   * Name (or clear) the head of a household.
+   *
+   * The head may request barangay services for the minors living there, so this
+   * is an authority assignment rather than a label — it is audited, and only
+   * a member of that household can hold it.
+   */
+  async setHouseholdHead(censusRecordId: string, actor: RequestUser): Promise<{ ok: true }> {
+    const record = await this.census.findOne({
+      where: { id: censusRecordId },
+      relations: { household: true },
+    });
+    if (!record) throw new NotFoundException('Census record not found.');
+    if (!record.household) {
+      throw new BadRequestException('Assign this resident to a household before making them its head.');
+    }
+
+    const current = record.household.headCensusRecordId;
+    // Tapping the current head clears the role rather than re-setting it.
+    const next = current === record.id ? null : record.id;
+    await this.households.update({ id: record.household.id }, { headCensusRecordId: next });
+
+    this.audit.log({
+      actorLabel: `${actor.fullName} (Staff)`,
+      actorId: actor.id,
+      action: next ? 'Set Head of Family' : 'Cleared Head of Family',
+      target: `${record.household.code} — ${record.fullName}`,
+    });
+    return { ok: true };
+  }
+
   async importCsv(
     csv: string,
     actor: RequestUser,

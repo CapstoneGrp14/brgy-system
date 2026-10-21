@@ -94,6 +94,45 @@ export function NotFoundPage({ inShell = false }: { inShell?: boolean }) {
   );
 }
 
+/**
+ * 403 — a staff member opened a section their account is not granted.
+ *
+ * Shown rather than silently redirected: the resident of the problem is a
+ * colleague who typed a URL or followed a stale bookmark, and bouncing them to
+ * the dashboard with no explanation reads as the link being broken. Naming the
+ * section and pointing at the administrator is the actionable answer.
+ */
+export function NoAccessPage({ sectionText }: { sectionText?: string }) {
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const home = user ? roleHome(user.role) : '/login';
+  const t = useT();
+
+  return (
+    <ErrorShell
+      code="403"
+      titleText={t('You do not have access to this page')}
+      message={
+        sectionText
+          ? t('{section} is not enabled for your account. Ask an administrator if you need it.', { section: sectionText })
+          : t('This section is not enabled for your account. Ask an administrator if you need it.')
+      }
+    >
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <Link to={home} style={{ ...btnPrimary, width: 'auto', padding: '11px 22px', textDecoration: 'none', display: 'inline-block' }}>
+          🏠 {t('Go to Dashboard')}
+        </Link>
+        <button
+          onClick={() => navigate(-1)}
+          style={{ background: '#fff', border: '2px solid #DCE3EE', color: '#2E3A52', borderRadius: 9, padding: '11px 20px', font: '700 13.5px Poppins, sans-serif', cursor: 'pointer' }}
+        >
+          {t('← Go Back')}
+        </button>
+      </div>
+    </ErrorShell>
+  );
+}
+
 /** Route error boundary — render/runtime crashes and thrown responses. */
 export function ErrorBoundaryPage() {
   const error = useRouteError();

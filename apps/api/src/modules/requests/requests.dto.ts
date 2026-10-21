@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -14,6 +15,15 @@ import {
 } from 'class-validator';
 
 export class CreateDocumentRequestDto {
+  /**
+   * Census id of a minor in the filer's household. Validated server-side
+   * against the filer actually being that household's head — the client
+   * choosing a value here grants nothing on its own.
+   */
+  @IsOptional()
+  @IsUUID()
+  beneficiaryCensusRecordId?: string;
+
   // Validated at runtime against built-in + staff-added types (DocTypesService).
   @IsString()
   @MaxLength(60)

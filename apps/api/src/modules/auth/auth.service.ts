@@ -84,6 +84,11 @@ export class AuthService {
       role: user.role,
       isResident: user.role === Role.RESIDENT || profile !== null,
       position: user.position,
+      // The sidebar and route guard read this from the session the login
+      // response establishes, not from /users/me — omit it and the client
+      // sees `undefined`, treats the account as unrestricted, and shows
+      // every module regardless of the grant.
+      allowedModules: user.allowedModules ?? null,
       ...(profile ? { verificationStatus: profile.verificationStatus } : {}),
     };
   }

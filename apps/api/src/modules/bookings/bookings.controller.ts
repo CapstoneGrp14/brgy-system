@@ -12,6 +12,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { BookingsService } from './bookings.service';
 
 class CreateBookingDto {
@@ -82,6 +83,7 @@ class AddSlotDto {
 }
 
 @Controller('bookings')
+@RequiresModule('calendar')
 export class BookingsController {
   constructor(private readonly bookings: BookingsService) {}
 

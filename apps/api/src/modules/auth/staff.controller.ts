@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from 'crypto';
-import { Role, STAFF_POSITIONS, StaffInviteRow, VerificationStatus } from '@brgy/shared';
+import {
+  ALL_STAFF_MODULES,
+  Role,
+  STAFF_POSITIONS,
+  StaffInviteRow,
+  type StaffModule,
+  VerificationStatus,
+} from '@brgy/shared';
 import {
   BadRequestException,
   Body,
@@ -13,7 +20,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsEmail, IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { In, IsNull, MoreThan, Repository } from 'typeorm';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
 import { AuditService } from '../audit/audit.service';
@@ -40,6 +47,15 @@ class CreateInviteDto {
 }
 
 @Roles(Role.ADMIN)
+
+class SetModulesDto {
+  /** null restores unrestricted access; [] means dashboard only. */
+  @IsOptional()
+  @IsArray()
+  @IsIn(ALL_STAFF_MODULES, { each: true })
+  modules!: StaffModule[] | null;
+}
+
 @Controller('staff')
 export class StaffController {
   constructor(
@@ -69,6 +85,9 @@ export class StaffController {
         role: u.role,
         position: u.position,
         isActive: u.isActive,
+        // Null = unrestricted. Admins are always unrestricted by design, so the
+        // UI does not offer toggles for them.
+        allowedModules: u.allowedModules ?? null,
         createdAt: u.createdAt.toISOString(),
       })),
       invites: invites.map(
@@ -86,6 +105,39 @@ export class StaffController {
         }),
       ),
     };
+  }
+
+
+  /**
+   * Set which staff modules an employee may use.
+   *
+   * Sending null restores unrestricted access; an empty array is a deliberate
+   * dashboard-only account. Admins are rejected — withholding oversight from
+   * the oversight role would be a footgun, not a feature.
+   */
+  @Post(':id/modules')
+  @Roles(Role.ADMIN)
+  async setModules(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetModulesDto,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const target = await this.users.findOne({ where: { id } });
+    if (!target) throw new NotFoundException('Staff account not found.');
+    if (target.role !== Role.EMPLOYEE) {
+      throw new BadRequestException('Module permissions apply to employee accounts only.');
+    }
+
+    const modules = dto.modules === null ? null : [...new Set(dto.modules)];
+    await this.users.update({ id }, { allowedModules: modules });
+
+    this.audit.log({
+      actorLabel: `${actor.fullName} (Admin)`,
+      actorId: actor.id,
+      action: 'Updated Staff Module Access',
+      target: `${target.fullName} — ${modules === null ? 'all modules' : modules.length ? modules.join(', ') : 'dashboard only'}`.slice(0, 255),
+    });
+    return { ok: true };
   }
 
   @Post('invites')

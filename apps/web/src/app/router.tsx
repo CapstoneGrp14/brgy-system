@@ -1,6 +1,7 @@
 import { Role } from '@brgy/shared';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { PortalLayout } from '../components/shell/PortalLayout';
+import { RequireModule } from '../components/shell/RequireModule';
 import { RequireVerified } from '../components/shell/RequireVerified';
 import { BookingCalendarPage } from '../features/bookings/BookingCalendarPage';
 import { BookingSettingsPage } from '../features/bookings/BookingSettingsPage';
@@ -76,17 +77,17 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/employee/dashboard" replace /> },
       { path: 'dashboard', element: <EmployeeDashboard /> },
-      { path: 'charter', element: <CharterPage /> },
-      { path: 'complaints', element: <StaffComplaintsPage /> },
-      { path: 'verification', element: <VerificationPage /> },
-      { path: 'calendar', element: <BookingCalendarPage /> },
-      { path: 'health-queue', element: <HealthQueuePage /> },
-      { path: 'inventory', element: <InventoryPage /> },
-      { path: 'masterlist', element: <MasterlistPage /> },
-      { path: 'student', element: <StaffStudentQueuePage /> },
-      { path: 'post', element: <PostAnnouncementPage /> },
-      { path: 'templates', element: <TemplatesPage /> },
-      { path: 'sos-map', element: <SosMapPage /> },
+      { path: 'charter', element: <RequireModule module="charter"><CharterPage /></RequireModule> },
+      { path: 'complaints', element: <RequireModule module="complaints"><StaffComplaintsPage /></RequireModule> },
+      { path: 'verification', element: <RequireModule module="verification"><VerificationPage /></RequireModule> },
+      { path: 'calendar', element: <RequireModule module="calendar"><BookingCalendarPage /></RequireModule> },
+      { path: 'health-queue', element: <RequireModule module="health"><HealthQueuePage /></RequireModule> },
+      { path: 'inventory', element: <RequireModule module="inventory"><InventoryPage /></RequireModule> },
+      { path: 'masterlist', element: <RequireModule module="masterlist"><MasterlistPage /></RequireModule> },
+      { path: 'student', element: <RequireModule module="student"><StaffStudentQueuePage /></RequireModule> },
+      { path: 'post', element: <RequireModule module="announcements"><PostAnnouncementPage /></RequireModule> },
+      { path: 'templates', element: <RequireModule module="templates"><TemplatesPage /></RequireModule> },
+      { path: 'sos-map', element: <RequireModule module="sos"><SosMapPage /></RequireModule> },
       { path: '*', element: <NotFoundPage inShell /> },
     ],
   },

@@ -26,6 +26,18 @@ export const DOCUMENT_TYPES: DocumentTypeMeta[] = [
 /** Queue tab filters (design: All / Documents / Health / CCTV). */
 export type QueueTab = 'all' | 'doc' | 'health' | 'cctv';
 
+/**
+ * A household member a head of family may file for. Minors cannot hold portal
+ * accounts (registration requires 16+), so without this they would have to be
+ * brought to the hall for every certificate.
+ */
+export interface DependantDto {
+  censusRecordId: string;
+  fullName: string;
+  /** Years, from the census birthdate — shown so staff and head can sanity-check. */
+  age: number;
+}
+
 export interface RequestDto {
   id: string;
   type: RequestType;
@@ -50,6 +62,8 @@ export interface RequestDto {
   /** Staff action label for the current status, computed server-side. Null = no action. */
   actionText: string | null;
   residentName?: string;
+  /** Set when the filer requested this for a minor in their household. */
+  beneficiaryName?: string | null;
 }
 
 export enum ReleaseMode {

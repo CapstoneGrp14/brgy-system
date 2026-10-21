@@ -23,6 +23,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { checkSignature } from '../../common/file-signature';
 import { COMPLAINT_ACTIONS, ComplaintsService } from './complaints.service';
 
@@ -78,6 +79,7 @@ class AdvanceDto {
 }
 
 @Controller('complaints')
+@RequiresModule('complaints')
 export class ComplaintsController {
   constructor(private readonly complaints: ComplaintsService) {}
 

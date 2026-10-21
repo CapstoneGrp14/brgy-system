@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PushModule } from '../push/push.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
 import { QueueModule } from '../queue/queue.module';
@@ -8,7 +9,7 @@ import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Announcement, User]), QueueModule, AuditModule],
+  imports: [TypeOrmModule.forFeature([Announcement, User]), QueueModule, AuditModule, PushModule],
   controllers: [AnnouncementsController],
   providers: [AnnouncementsService],
 })

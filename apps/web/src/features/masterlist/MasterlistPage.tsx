@@ -1,15 +1,6 @@
 import { CensusCategory, Role, type MasterlistRow } from '@brgy/shared';
 import { useState } from 'react';
-import {
-  downloadMasterlistCsv,
-  useAddRecord,
-  useCensusHistory,
-  useDeleteRecord,
-  useImportCsv,
-  type ImportErrorBody,
-  useMasterlist,
-  useUpdateRecord,
-} from '../../api/masterlist';
+import { downloadMasterlistCsv, type ImportErrorBody, useAddRecord, useCensusHistory, useDeleteRecord, useImportCsv, useMasterlist, useSetHouseholdHead, useUpdateRecord } from '../../api/masterlist';
 import { card, cols, input, label, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { DatePicker, todayString } from '../../components/ui/DatePicker';
@@ -54,6 +45,7 @@ export function MasterlistPage() {
   const addRecord = useAddRecord();
   const updateRecord = useUpdateRecord();
   const deleteRecord = useDeleteRecord();
+  const setHead = useSetHouseholdHead();
   const importCsv = useImportCsv();
   const [importError, setImportError] = useState<ImportErrorBody | null>(null);
   const saving = addRecord.isPending || updateRecord.isPending;
@@ -108,6 +100,20 @@ export function MasterlistPage() {
       closeForm();
     } catch (err: any) {
       toast(err?.response?.data?.message ?? t('Could not save the record.'));
+    }
+  };
+
+  const onToggleHead = async (r: MasterlistRow) => {
+    if (setHead.isPending || !r.householdCode) return;
+    try {
+      await setHead.mutateAsync(r.id);
+      toast(
+        r.isHouseholdHead
+          ? t('{name} is no longer head of {code}.', { name: r.fullName, code: r.householdCode })
+          : t('{name} is now head of {code} — they can request for the minors there.', { name: r.fullName, code: r.householdCode }),
+      );
+    } catch (err: any) {
+      toast(err?.response?.data?.message ?? t('Could not update head of family.'));
     }
   };
 
@@ -321,6 +327,13 @@ export function MasterlistPage() {
                       </button>
                     )}
                     {r.fullName}
+                    {/* The head may transact for the minors in this household,
+                        so the role is shown on the row, not buried in a dialog. */}
+                    {r.isHouseholdHead && (
+                      <span style={{ ...pill('blue'), marginLeft: 8 }} title={t('May request services for the minors in this household')}>
+                        {t('Head of Family')}
+                      </span>
+                    )}
                     {!r.isActive && <span style={{ ...pill('gray'), marginLeft: 8 }}>{t('Inactive')}</span>}
                   </td>
                   <td style={td}>
@@ -352,6 +365,21 @@ export function MasterlistPage() {
                   </td>
                   <td style={td}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => void onToggleHead(r)}
+                        disabled={setHead.isPending || !r.householdCode}
+                        title={
+                          !r.householdCode
+                            ? t('Assign a household code first.')
+                            : r.isHouseholdHead
+                              ? t('Remove as head of family')
+                              : t('Make head of family')
+                        }
+                        style={{ background: 'none', border: 'none', color: !r.householdCode ? '#C3CBD8' : '#21409A', fontWeight: 700, fontSize: 12.5, cursor: !r.householdCode ? 'not-allowed' : 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        {r.isHouseholdHead ? t('Unset Head') : t('Set Head')}
+                      </button>
                       <button
                         type="button"
                         onClick={() => startEdit(r)}

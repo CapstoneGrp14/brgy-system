@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { CensusRecord } from '../masterlist/census-record.entity';
+import { Household } from '../masterlist/household.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TemplatesModule } from '../templates/templates.module';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -12,7 +14,7 @@ import { ServiceRequest } from './service-request.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ServiceRequest, RequestEvent, ResidentProfile, DocumentTypeSetting, Upload]),
+    TypeOrmModule.forFeature([ServiceRequest, RequestEvent, ResidentProfile, DocumentTypeSetting, Upload, CensusRecord, Household]),
     InventoryModule,
     TemplatesModule,
   ],

@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { isTwoFactorChallenge, type LoginResponse, type TwoFactorChallenge } from '@brgy/shared';
-import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { api } from '../../api/client';
 import { login } from '../../api/auth';
 import { btnBusy, btnPrimary, errorText, input, label } from '../../components/ui/kit';
 import { PasswordInput } from '../../components/ui/PasswordInput';
@@ -19,13 +17,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const t = useT();
-  // Live public aggregates for the hero — falls back to placeholders while loading.
-  const { data: stats } = useQuery({
-    queryKey: ['public-stats'],
-    queryFn: async () => (await api.get<{ residents: number; artaCompliance: number | null }>('/public/stats')).data,
-    staleTime: 5 * 60_000,
-    retry: 1,
-  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -61,84 +52,53 @@ export function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: isMobile ? 'column' : 'row', background: '#1E3A5F' }}>
-      {/* Branding panel (navy) */}
-      <div
-        style={{
-          flex: isMobile ? undefined : 1.1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: isMobile ? '30px 26px 26px' : '64px 72px',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {!isMobile && (
-          <>
-            <div style={{ position: 'absolute', right: -120, top: -120, width: 340, height: 340, borderRadius: '50%', background: 'rgba(245,168,28,.07)' }} />
-            <div style={{ position: 'absolute', left: -100, bottom: -140, width: 380, height: 380, borderRadius: '50%', background: 'rgba(255,255,255,.04)' }} />
-          </>
-        )}
-        <img
-          src="/brgy591-logo.png"
-          alt="Barangay 591"
-          style={{
-            width: isMobile ? 64 : 96,
-            height: isMobile ? 64 : 96,
-            borderRadius: '50%',
-            objectFit: 'cover',
-            // The seal is a transparent circle; the thin gold ring frames it
-            // against the navy panel.
-            border: '2px solid rgba(245,168,28,.55)',
-            boxShadow: '0 6px 18px rgba(0,0,0,.28)',
-          }}
-        />
-        <div style={{ fontSize: 12, letterSpacing: '.18em', color: '#93A7C0', fontWeight: 700, marginTop: 10 }}>
-          {t('BARANGAY E-SERVICES PORTAL')}
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? '40px 20px' : '48px 20px',
+        // White at the top easing into barangay blue at the foot of the page.
+        // The stops bunch toward the bottom so the upper half stays light
+        // enough for the dark heading to sit on it without a panel behind.
+        background: 'linear-gradient(180deg, #FFFFFF 0%, #F2F6FC 28%, #D4E0F2 56%, #9DB7DE 80%, #5C83C3 100%)',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        {/* Masthead sits on the gradient itself, above the card */}
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <img
+            src="/brgy591-logo.png"
+            alt={t('Barangay 591')}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              display: 'block',
+              margin: '0 auto 12px',
+            }}
+          />
+          <h1 style={{ margin: 0, font: '700 19px Poppins, sans-serif', color: '#1E3A5F' }}>
+            {t('Welcome Back')}
+          </h1>
+          <p style={{ margin: '5px 0 0', fontSize: 12.5, color: '#64748B' }}>
+            {t('Log in to access Barangay 591 E-Services')}
+          </p>
         </div>
-        <h2 style={{ font: `700 ${isMobile ? 20 : 30}px Poppins, sans-serif`, color: '#fff', margin: isMobile ? '14px 0 6px' : '26px 0 10px', maxWidth: 460 }}>
-          {t('Serbisyong mabilis, malinaw, at maaasahan.')}
-        </h2>
-        {!isMobile && (
-          <>
-            <p style={{ color: '#AFC0D6', fontSize: 15, lineHeight: 1.6, maxWidth: 440 }}>
-              {t('Request documents, file complaints, book facilities, and reach your barangay — online, anytime.')}
-            </p>
-            <div style={{ display: 'flex', gap: 26, marginTop: 34 }}>
-              {[
-                [stats ? stats.residents.toLocaleString() : '—', 'Registered Residents'],
-                [stats ? (stats.artaCompliance === null ? 'ARTA' : `${stats.artaCompliance}%`) : '—', stats?.artaCompliance === null ? '3-7-20 Tracked' : 'ARTA Compliance'],
-                ['24/7', 'One-Tap SOS'],
-              ].map(([v, l]) => (
-                <div key={l}>
-                  <div style={{ font: '800 24px Poppins, sans-serif', color: '#F5A81C' }}>{v}</div>
-                  <div style={{ fontSize: 12, color: '#93A7C0', fontWeight: 600 }}>{t(l)}</div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        <div style={{ marginTop: isMobile ? 12 : 40, fontSize: 12, color: '#7E93AE', fontWeight: 600 }}>
-          📍 Zone 58, District VI · Manila
-        </div>
-      </div>
 
-      {/* Form panel (white) — clean division from the navy branding side */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: isMobile ? 'stretch' : 'center',
-          justifyContent: 'center',
-          padding: isMobile ? '30px 22px 40px' : 40,
-          background: '#fff',
-          borderLeft: isMobile ? 'none' : '1px solid #E3E8F0',
-          borderTopLeftRadius: isMobile ? 22 : 0,
-          borderTopRightRadius: isMobile ? 22 : 0,
-        }}
-      >
-        <div style={{ width: isMobile ? '100%' : 400, maxWidth: 440 }}>
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 10,
+            padding: isMobile ? '22px 20px' : '26px 28px',
+            // Soft and wide rather than tight and dark: the card should lift
+            // off the gradient, not look outlined against it.
+            boxShadow: '0 1px 2px rgba(23,43,77,.04), 0 12px 32px -14px rgba(23,43,77,.22)',
+          }}
+        >
           {challenge ? (
             <TwoFactorStep
               challenge={challenge}
@@ -152,20 +112,16 @@ export function LoginPage() {
             />
           ) : (
             <>
-              <h1 style={{ margin: 0, font: '700 22px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Sign in')}</h1>
-              <p style={{ margin: '6px 0 20px', fontSize: 13.5, color: '#64748B' }}>
-                {t('Welcome back — your portal opens based on your account.')}
-              </p>
-
-              <label style={label}>{t('Email or Mobile Number')}</label>
+              <label style={label}>{t('Mobile Number or Email')}</label>
               <input
                 style={{ ...input, marginBottom: 14 }}
-                placeholder={t('e.g., antonette@gmail.com')}
+                placeholder={t('e.g. 09123456789')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submit()}
                 autoComplete="username"
               />
+
               <label style={label}>{t('Password')}</label>
               <PasswordInput
                 style={{ marginBottom: 14 }}
@@ -176,28 +132,35 @@ export function LoginPage() {
                 autoComplete="current-password"
               />
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#33415E', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#64748B', cursor: 'pointer' }}>
                   <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
                   {t('Remember me')}
                 </label>
-                <Link to="/forgot-password" style={{ fontSize: 13, fontWeight: 600 }}>
-                  {t('Forgot password?')}
+                <Link to="/forgot-password" style={{ fontSize: 12.5, fontWeight: 600 }}>
+                  {t('Forgot Password?')}
                 </Link>
               </div>
 
               {error && <div style={{ ...errorText, marginBottom: 14 }}>{error}</div>}
 
               <button onClick={submit} style={busy ? btnBusy : btnPrimary}>
-                {busy ? t('Signing in…') : t('Sign In')}
+                {busy ? t('Signing in…') : t('Log In to Portal')}
               </button>
 
-              <p style={{ textAlign: 'center', fontSize: 13, color: '#64748B', marginTop: 18, marginBottom: 0 }}>
-                {t('New resident?')} <Link to="/register" style={{ fontWeight: 700 }}>{t('Create an account')}</Link>
+              <p style={{ textAlign: 'center', fontSize: 12.5, color: '#64748B', margin: '16px 0 0' }}>
+                {t("Don't have an account yet?")}{' '}
+                <Link to="/register" style={{ fontWeight: 700 }}>
+                  {t('Sign Up')}
+                </Link>
               </p>
             </>
           )}
         </div>
+
+        {/* The mockup had "Back to Homepage" here, but "/" redirects straight
+            back to /login — there is no public landing page — so the link would
+            loop on itself. Restore it if a homepage is ever added. */}
       </div>
       <Toasts />
     </div>

@@ -1,8 +1,15 @@
 import { Role } from '@brgy/shared';
+import type { StaffModule } from '@brgy/shared';
 import type { IconName } from '../components/ui/Icon';
 
 export interface NavItem {
   path: string;
+  /**
+   * Staff module this item belongs to. Items without one (the dashboard) are
+   * always shown. Hiding is presentation only — the API enforces the same
+   * grant, so a hidden route still refuses if called directly.
+   */
+  module?: StaffModule;
   /** Line-icon key; rendered by <Icon>. Replaced the old emoji strings. */
   icon: IconName;
   labelText: string;
@@ -53,40 +60,40 @@ export const NAV: Record<Role, NavSection[]> = {
       labelText: 'GENERAL',
       items: [
         { path: '/employee/dashboard', icon: 'clipboard', labelText: 'Dashboard' },
-        { path: '/employee/charter', icon: 'book', labelText: "Citizen's Charter" },
+        { path: '/employee/charter', icon: 'book', labelText: "Citizen's Charter" , module: 'charter' },
       ],
     },
     {
       labelText: 'WORKQUEUE',
       items: [
-        { path: '/employee/complaints', icon: 'scale', labelText: 'Complaints & Blotter' },
-        { path: '/employee/verification', icon: 'user', labelText: 'Resident Verification' },
-        { path: '/employee/templates', icon: 'folder', labelText: 'Document Types' },
+        { path: '/employee/complaints', icon: 'scale', labelText: 'Complaints & Blotter' , module: 'complaints' },
+        { path: '/employee/verification', icon: 'user', labelText: 'Resident Verification' , module: 'verification' },
+        { path: '/employee/templates', icon: 'folder', labelText: 'Document Types' , module: 'templates' },
       ],
     },
     {
       labelText: 'SCHEDULING',
-      items: [{ path: '/employee/calendar', icon: 'calendar', labelText: 'Booking Calendar' }],
+      items: [{ path: '/employee/calendar', icon: 'calendar', labelText: 'Booking Calendar' , module: 'calendar' }],
     },
     {
       labelText: 'SERVICES',
       items: [
-        { path: '/employee/health-queue', icon: 'pill', labelText: 'Health & Medicine' },
-        { path: '/employee/inventory', icon: 'box', labelText: 'Inventory & Supplies' },
-        { path: '/employee/masterlist', icon: 'people', labelText: 'Masterlist Registry' },
+        { path: '/employee/health-queue', icon: 'pill', labelText: 'Health & Medicine' , module: 'health' },
+        { path: '/employee/inventory', icon: 'box', labelText: 'Inventory & Supplies' , module: 'inventory' },
+        { path: '/employee/masterlist', icon: 'people', labelText: 'Masterlist Registry' , module: 'masterlist' },
       ],
     },
     {
       labelText: 'STUDENT SERVICES',
-      items: [{ path: '/employee/student', icon: 'student', labelText: 'Student Support' }],
+      items: [{ path: '/employee/student', icon: 'student', labelText: 'Student Support' , module: 'student' }],
     },
     {
       labelText: 'COMMUNICATION',
-      items: [{ path: '/employee/post', icon: 'megaphone', labelText: 'Post Announcement' }],
+      items: [{ path: '/employee/post', icon: 'megaphone', labelText: 'Post Announcement' , module: 'announcements' }],
     },
     {
       labelText: 'EMERGENCY',
-      items: [{ path: '/employee/sos-map', icon: 'map', labelText: 'SOS Map', sos: true }],
+      items: [{ path: '/employee/sos-map', icon: 'map', labelText: 'SOS Map', sos: true , module: 'sos' }],
     },
   ],
   [Role.ADMIN]: [
@@ -134,6 +141,15 @@ export const NAV: Record<Role, NavSection[]> = {
     },
   ],
 };
+
+/** Sidebar for a role, minus anything the account's grant withholds. */
+export function navFor(role: Role, allowed: StaffModule[] | null | undefined): NavSection[] {
+  if (role !== Role.EMPLOYEE || !allowed) return NAV[role];
+  const permitted = new Set(allowed);
+  return NAV[role]
+    .map((section) => ({ ...section, items: section.items.filter((i) => !i.module || permitted.has(i.module)) }))
+    .filter((section) => section.items.length > 0);
+}
 
 export function pageTitle(role: Role, pathname: string): string {
   for (const section of NAV[role]) {

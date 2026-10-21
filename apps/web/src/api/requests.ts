@@ -1,4 +1,4 @@
-import type { NotificationsResponse, QueueResponse, QueueTab, RequestDto } from '@brgy/shared';
+import type { DependantDto, NotificationsResponse, QueueResponse, QueueTab, RequestDto } from '@brgy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -12,9 +12,21 @@ export function useMyRequests() {
 export function useCreateDocumentRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { documentType: string; purpose: string }) =>
+    mutationFn: async (input: { documentType: string; purpose: string; beneficiaryCensusRecordId?: string }) =>
       (await api.post<RequestDto>('/requests/documents', input)).data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['requests', 'mine'] }),
+  });
+}
+
+/**
+ * Minors in the caller's household they may file for. Empty for everyone who is
+ * not a registered head of family, so the picker simply does not appear.
+ */
+export function useDependants() {
+  return useQuery({
+    queryKey: ['requests', 'dependants'],
+    queryFn: async () => (await api.get<DependantDto[]>('/requests/dependants')).data,
+    staleTime: 5 * 60_000,
   });
 }
 

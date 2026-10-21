@@ -1,5 +1,6 @@
 import { useAdvanceRequest } from '../../api/requests';
-import { openPrintFile, usePrintingQueue } from '../../api/inventory';
+import { usePrintingQueue } from '../../api/inventory';
+import { openPrintWindow, printStudentFile } from '../../api/print';
 import { card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { STATUS_PILL, fmtDateLong } from '../../components/ui/status';
 import { useT } from '../../i18n';
@@ -65,7 +66,19 @@ export function StaffStudentQueuePage() {
                     {r.fileUrl && (
                       <button
                         onClick={() =>
-                          openPrintFile(r.id).catch(() => toast(t('Could not open the file — try again.')))
+                          (() => {
+                            // Claim the tab inside the click: opening it after
+                            // the request resolves counts as a popup and is blocked.
+                            const win = openPrintWindow();
+                            if (!win) {
+                              toast(t('Allow pop-ups for this site to print.'));
+                              return;
+                            }
+                            printStudentFile(win, r.id).catch(() => {
+                              win.close();
+                              toast(t('Could not open the file — try again.'));
+                            });
+                          })()
                         }
                         title={t('Open {name} to print (docx auto-converts to PDF)', { name: r.fileName ?? t('file') })}
                         style={{

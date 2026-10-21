@@ -13,6 +13,7 @@ import {
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { InventoryService } from './inventory.service';
 
 class AddItemDto {
@@ -57,6 +58,7 @@ class ListQueryDto {
 }
 
 @Controller('inventory')
+@RequiresModule('inventory')
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
 

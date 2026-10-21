@@ -28,6 +28,9 @@ export class UsersController {
       role: user.role,
       isResident: user.role === Role.RESIDENT || profile !== null,
       position: user.position,
+      // Drives sidebar filtering. Null = unrestricted; enforcement is the
+      // ModuleAccessGuard's job, this is only what the UI should offer.
+      allowedModules: user.allowedModules ?? null,
       phone: user.phone,
       verificationStatus: profile?.verificationStatus,
       address: profile?.address ?? null,

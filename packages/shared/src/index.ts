@@ -4,6 +4,7 @@ export * from './complaints';
 export * from './enums';
 export * from './geo';
 export * from './inventory';
+export * from './ordinances';
 export * from './password';
 export * from './requests';
 export * from './types';

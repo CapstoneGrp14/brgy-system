@@ -1,12 +1,6 @@
-import { STAFF_POSITIONS } from '@brgy/shared';
+import { ALL_STAFF_MODULES, STAFF_MODULES, STAFF_POSITIONS, type StaffModule } from '@brgy/shared';
 import { useState } from 'react';
-import {
-  useDemoteStaff,
-  useInviteStaff,
-  usePromoteResident,
-  useRevokeInvite,
-  useStaff,
-} from '../../api/staff';
+import { useDemoteStaff, useInviteStaff, usePromoteResident, useRevokeInvite, useSetStaffModules, useStaff } from '../../api/staff';
 import { useAuthStore } from '../../stores/auth';
 import { btnBusy, btnPrimary, card, input, label, pill } from '../../components/ui/kit';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
@@ -20,6 +14,27 @@ export function StaffPage() {
   const invite = useInviteStaff();
   const promote = usePromoteResident();
   const demote = useDemoteStaff();
+  const setModules = useSetStaffModules();
+  // Which employee's permission panel is open. Collapsed by default so the
+  // list stays scannable — most accounts never need a change.
+  const [modulesFor, setModulesFor] = useState<string | null>(null);
+
+  const toggleModule = async (staffId: string, current: StaffModule[] | null, key: StaffModule) => {
+    if (setModules.isPending) return;
+    // null means unrestricted; the first removal has to start from the full set.
+    const base = current ?? ALL_STAFF_MODULES;
+    const next = base.includes(key) ? base.filter((m) => m !== key) : [...base, key];
+    try {
+      await setModules.mutateAsync({
+        id: staffId,
+        // Back to everything selected? Store null so the account reads as
+        // unrestricted rather than a list that happens to be complete.
+        modules: next.length === ALL_STAFF_MODULES.length ? null : next,
+      });
+    } catch (err: any) {
+      toast(err?.response?.data?.message ?? t('Could not update access.'));
+    }
+  };
   const revoke = useRevokeInvite();
   const me = useAuthStore((s) => s.user);
   const toast = useUiStore((s) => s.toast);
@@ -137,6 +152,19 @@ export function StaffPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={pill(s.role === 'ADMIN' ? 'purple' : 'green')}>{s.role === 'ADMIN' ? t('Admin') : t('Employee')}</span>
+                {s.role === 'EMPLOYEE' && (
+                  <button
+                    onClick={() => setModulesFor(modulesFor === s.id ? null : s.id)}
+                    aria-expanded={modulesFor === s.id}
+                    style={{ background: 'none', border: 'none', color: '#21409A', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+                  >
+                    {modulesFor === s.id
+                      ? t('Hide access')
+                      : s.allowedModules
+                        ? t('Access ({n}/{total})', { n: s.allowedModules.length, total: ALL_STAFF_MODULES.length })
+                        : t('Access (all)')}
+                  </button>
+                )}
                 {s.id !== me?.id && (
                   <button
                     onClick={async () => {
@@ -164,6 +192,35 @@ export function StaffPage() {
                   </button>
                 )}
               </div>
+              {modulesFor === s.id && s.role === 'EMPLOYEE' && (
+                <div style={{ width: '100%', background: '#F7F9FC', border: '1px solid #E8EDF4', borderRadius: 10, padding: '14px 16px', marginTop: 10 }}>
+                  <p style={{ fontSize: 12.5, color: '#64748B', margin: '0 0 10px', lineHeight: 1.55 }}>
+                    {t('Untick a section to hide it from this account. The portal also refuses those pages if opened directly, so this is a real restriction and not just a hidden menu.')}
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 6 }}>
+                    {STAFF_MODULES.map((mod) => {
+                      const on = (s.allowedModules ?? ALL_STAFF_MODULES).includes(mod.key);
+                      return (
+                        <label key={mod.key} title={t(mod.hint)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, cursor: 'pointer', padding: '4px 0', color: on ? '#2E3A52' : '#8A97AB' }}>
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            disabled={setModules.isPending}
+                            onChange={() => void toggleModule(s.id, s.allowedModules ?? null, mod.key)}
+                            style={{ marginTop: 2, cursor: 'pointer' }}
+                          />
+                          <span>{t(mod.labelText)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {s.allowedModules?.length === 0 && (
+                    <p style={{ fontSize: 12.5, color: '#C96A11', fontWeight: 600, margin: '10px 0 0' }}>
+                      {t('This account can only see the dashboard.')}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

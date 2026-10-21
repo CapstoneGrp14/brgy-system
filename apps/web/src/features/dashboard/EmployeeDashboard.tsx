@@ -10,7 +10,7 @@ import {
   type QueueDeadline,
   useUploadSignedDocument,
 } from '../../api/requests';
-import { fetchPrintUrl } from '../../api/templates';
+import { openPrintWindow, printDocument } from '../../api/print';
 import { useComplaintsQueue } from '../../api/complaints';
 import { useInventory } from '../../api/inventory';
 import { useVerificationQueue } from '../../api/verification';
@@ -298,9 +298,17 @@ export function EmployeeDashboard() {
                           <button
                             title={t('Download the generated PDF for printing (seal + signature)')}
                             onClick={() =>
-                              fetchPrintUrl(r.id)
-                                .then((url) => window.open(url, '_blank'))
-                                .catch(() => toast(t('Print download failed — try again.')))
+                              (() => {
+                                const win = openPrintWindow();
+                                if (!win) {
+                                  toast(t('Allow pop-ups for this site to print.'));
+                                  return;
+                                }
+                                printDocument(win, r.id).catch(() => {
+                                  win.close();
+                                  toast(t('Print failed — try again.'));
+                                });
+                              })()
                             }
                             style={{ background: 'none', border: 'none', color: '#64748B', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', textAlign: 'left', lineHeight: 1.3, flexShrink: 0 }}
                           >
@@ -398,9 +406,17 @@ export function EmployeeDashboard() {
               {detail.hasDocument ? (
                 <button
                   onClick={() =>
-                    fetchPrintUrl(detail.id)
-                      .then((url) => window.open(url, '_blank'))
-                      .catch(() => toast(t('Print download failed — try again.')))
+                    (() => {
+                      const win = openPrintWindow();
+                      if (!win) {
+                        toast(t('Allow pop-ups for this site to print.'));
+                        return;
+                      }
+                      printDocument(win, detail.id).catch(() => {
+                        win.close();
+                        toast(t('Print failed — try again.'));
+                      });
+                    })()
                   }
                   style={{ background: 'none', border: 'none', padding: 0, color: '#2E66D0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
                 >

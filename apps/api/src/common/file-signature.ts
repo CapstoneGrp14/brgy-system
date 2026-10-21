@@ -64,17 +64,24 @@ export function checkSignature(
 
   const kind = detectKind(buf);
   if (!kind) {
+    // Name what this endpoint takes rather than everything the checker knows —
+    // "not a PDF, Word document, or image" is misleading where PDFs are not
+    // accepted anyway.
+    const allowedText = allowed.map((a) => (a === 'docx' ? 'Word (.docx)' : a.toUpperCase())).join(', ');
     return {
       ok: false,
       kind: null,
-      reason: 'That file is not a PDF, Word document, or image. Please upload one of those.',
+      reason: `That file type is not recognised. Upload one of: ${allowedText}.`,
     };
   }
   if (!allowed.includes(kind)) {
+    // Name what IS accepted. "PDF files are not accepted here" leaves the
+    // resident guessing; listing the alternatives tells them what to do next.
+    const allowedText = allowed.map((a) => (a === 'docx' ? 'Word (.docx)' : a.toUpperCase())).join(', ');
     return {
       ok: false,
       kind,
-      reason: `${kind.toUpperCase()} files are not accepted here.`,
+      reason: `${kind === 'docx' ? 'Word' : kind.toUpperCase()} files are not accepted here. Upload one of: ${allowedText}.`,
     };
   }
   // Content wins, but a mismatch means the name or header lied — worth logging.

@@ -4,6 +4,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthGuard, RolesGuard } from './common/guards';
+import { ModuleAccessGuard } from './common/module-access';
+import { User } from './modules/users/user.entity';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -17,6 +19,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { MailModule } from './modules/mail/mail.module';
 import { MasterlistModule } from './modules/masterlist/masterlist.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PushModule } from './modules/push/push.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RequestsModule } from './modules/requests/requests.module';
@@ -36,6 +39,8 @@ import { VerificationModule } from './modules/verification/verification.module';
     // not a usage quota. Routes worth protecting (sign-in, the assistant) set
     // their own much tighter @Throttle.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
+    // The module guard reads live permissions, so it needs the users repository.
+    TypeOrmModule.forFeature([User]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -52,6 +57,7 @@ import { VerificationModule } from './modules/verification/verification.module';
       }),
     }),
     QueueModule,
+    PushModule,
     AuditModule,
     MailModule,
     StorageModule,
@@ -78,6 +84,8 @@ import { VerificationModule } from './modules/verification/verification.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Last: role must be established before module grants mean anything.
+    { provide: APP_GUARD, useClass: ModuleAccessGuard },
   ],
 })
 export class AppModule {}

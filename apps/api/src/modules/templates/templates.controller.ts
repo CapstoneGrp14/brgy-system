@@ -19,6 +19,7 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Repository } from 'typeorm';
 import { IsEnum } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
+import { RequiresModule } from '../../common/module-access';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { DocTypesService } from './doc-types.service';
@@ -74,6 +75,7 @@ class AddDocTypeDto {
 }
 
 @Controller('templates')
+@RequiresModule('templates')
 export class TemplatesController {
   constructor(
     @InjectRepository(DocumentTemplate) private readonly templates: Repository<DocumentTemplate>,
