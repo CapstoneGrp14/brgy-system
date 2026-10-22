@@ -431,9 +431,38 @@ phone on `http://192.168.x.x:5173` cannot subscribe at all.
 | `http://192.168.x.x:5173` on a phone | no — needs one of the §8 routes |
 | deployed over `https://` | yes |
 
-**What is still unverified:** actual receipt on a physical device. That needs a
-real browser subscribing from a secure origin, which cannot be done headlessly.
-Everything up to and including the encrypted, signed payload is proven.
+### 10c. Verified on a real browser, notification and all
+
+Driven with Playwright against the installed **Google Chrome** on
+`http://localhost:5173` — a secure origin, so the service worker registers:
+
+```
+page isSecureContext         : true
+browser subscribed to        : fcm.googleapis.com
+POST /push/subscribe         : HTTP 201
+urgent announcement posted   : HTTP 201
+NOTIFICATION RENDERED BY SW  : {"title":"🚨 _e2e Evacuation Drill",
+                                "body":"This is the end-to-end push proof.",
+                                "tag":"announcement-eab0a9e5-…"}
+api log                      : Urgent push: 1 delivered, 0 dead endpoint(s) pruned
+```
+
+That is the complete chain: browser subscribes → server stores the endpoint →
+urgent broadcast → VAPID-signed and encrypted → Google FCM → service worker →
+notification on screen. **Push works.**
+
+Two things the attempt taught, both worth knowing before testing by hand:
+
+- **Chrome disables the Push API in incognito**, with no feature detection by
+  design. A private window will fail `subscribe()` with a bare
+  "permission denied" no matter how the notification permission is set.
+- **`http://localhost` is a secure origin**, so push works there with no TLS.
+  Only other hosts — a LAN IP, a domain — need `https://`.
+
+All three channels are intended to fire together for an urgent post: the email,
+the app-level push, and the in-app bell plus banner. They are different
+audiences in practice (inbox, locked phone, someone already on the portal), so
+none of them is redundant.
 
 Covered by 4 new regression checks (`54 / 54`), which register a resident and a
 dual-role device, fire an urgent broadcast, assert **both** were attempted, and
