@@ -211,6 +211,14 @@ services:
     environment:
       <<: *app-env
       VITE_API_PROXY: http://api:3000
+      # Extra Host headers the dev server will answer to, comma-separated.
+      # Set it in the root .env when fronting the dev server with a tunnel
+      # (cloudflared/ngrok) so a phone can reach it over https — iOS registers
+      # no service worker, and so receives no push, on a plain-http origin.
+      # Passed through the container environment rather than read from a .env
+      # file: `npm run -w @brgy/web` puts Vite's cwd in apps/web, so a root
+      # .env is not on its search path at all.
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-}
     depends_on:
       api:
         condition: service_healthy

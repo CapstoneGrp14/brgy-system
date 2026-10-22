@@ -9,6 +9,15 @@ const sharedSrc = fileURLToPath(new URL('../../packages/shared/src/index.ts', im
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiProxy = env.VITE_API_PROXY || 'http://localhost:3000';
+  // Extra Host headers the dev server should answer to, comma-separated.
+  // Needed when a tunnel (cloudflared, ngrok) fronts the dev server so a phone
+  // can reach it over https — iOS will not register a service worker, and so
+  // cannot receive push, on a plain-http origin. Opt-in per developer via the
+  // environment; nothing is allowed by default.
+  const tunnelHosts = (env.VITE_ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean);
 
   return {
     plugins: [react()],
@@ -17,6 +26,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      allowedHosts: tunnelHosts,
       fs: {
         // The dev server runs with --host, so it is reachable from the whole
         // network. By default Vite will serve any file under the workspace

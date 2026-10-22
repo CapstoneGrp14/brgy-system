@@ -107,4 +107,17 @@ export const common: Record<string, string> = {
   'Who is this for?': 'Para kanino ito?',
   Myself: 'Ako mismo',
   '{name} — age {age}': '{name} — edad {age}',
+
+  // Resident push opt-in prompt.
+  'Turn on urgent barangay alerts?': 'I-on ang mga agarang abiso ng barangay?',
+  'Evacuation notices and emergency advisories reach this device even when the portal is closed.': 'Naaabot ng mga abiso sa paglikas at pang-emerhensiyang paalala ang device na ito kahit nakasara ang portal.',
+  'Not now': 'Hindi muna',
+  'Enable alerts': 'I-on ang abiso',
+  'Could not turn on notifications.': 'Hindi na-on ang mga abiso.',
+  '🔔 Urgent alerts on — we will notify this device.': '🔔 Naka-on ang agarang abiso — aabisuhan namin ang device na ito.',
+  'Notifications are blocked in your browser settings.': 'Naka-block ang mga abiso sa settings ng iyong browser.',
+  'Working…': 'Ginagawa…',
+
+  'Barangay 591 can alert this device about evacuation notices and emergency advisories — even when the portal is closed.': 'Maaaring abisuhan ng Barangay 591 ang device na ito tungkol sa paglikas at pang-emerhensiyang paalala — kahit nakasara ang portal.',
+  'Your browser will ask you to Allow. Only urgent announcements are sent this way — never routine notices.': 'Hihingin ng iyong browser na pumayag. Mga agarang anunsyo lamang ang ipinapadala sa ganitong paraan — hindi ang karaniwang paalala.',
 };

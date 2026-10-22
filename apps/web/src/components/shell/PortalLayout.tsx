@@ -10,6 +10,7 @@ import { Toasts } from '../ui/Toasts';
 import { AssistantWidget } from './AssistantWidget';
 import { Header } from './Header';
 import { NotificationsDrawer } from './NotificationsDrawer';
+import { PushOptInPrompt } from './PushOptInPrompt';
 import { Sidebar } from './Sidebar';
 import { StaffChatDrawer } from './StaffChatDrawer';
 
@@ -85,6 +86,10 @@ export function PortalLayout({ role }: { role: Role }) {
           user={user}
         />
         {role !== Role.RESIDENT && <SosAlertBanner portal={role} />}
+        {/* Residents are the audience for urgent advisories, so the ask lives
+            in their shell rather than on one page they may never open — which
+            means it surfaces immediately after login. */}
+        {role === Role.RESIDENT && <PushOptInPrompt />}
         <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '18px 16px 28px' : '26px 30px' }}>
           <Outlet />
         </div>
