@@ -140,7 +140,10 @@ export class AnnouncementsService {
       // posting the announcement must not fail or stall because a push service
       // is slow, and the broadcast has already been recorded by this point.
       void this.push
-        .sendToUsers(residents.map((r) => r.id), {
+        // Every subscribed device, not just role=RESIDENT accounts: a staff
+        // member who lives in the barangay needs the evacuation notice on
+        // their own phone like anyone else, and they had opted in to get it.
+        .sendToAll({
           title: `🚨 ${saved.title}`,
           body: input.body.slice(0, 180),
           url: '/resident/announcements',

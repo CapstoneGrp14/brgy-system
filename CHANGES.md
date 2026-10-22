@@ -361,6 +361,87 @@ the admin API and restore it afterwards.
 
 ---
 
+## 10. Push: a real fan-out bug, and what "not working" actually was
+
+Two separate things were wrong. Only one of them was code.
+
+### 10a. The fan-out skipped anyone who was not `role = RESIDENT`
+
+```ts
+const residents = await this.users.find({ where: { role: In([Role.RESIDENT]) … } });
+void this.push.sendToUsers(residents.map((r) => r.id), …)
+```
+
+For a barangay-wide emergency the audience is not a role — it is everyone who
+asked to be told. That filter silently skipped two groups who **had opted in**:
+a staff member who is also a resident of the barangay (dual role), and any
+employee who turned alerts on. Same root cause as §9, a different symptom.
+
+Demonstrated by registering two devices and firing one urgent broadcast:
+
+```
+subscriptions in DB: 2   (antonette RESIDENT, w.castro EMPLOYEE+resident)
+delivery attempts  : 1   <- the dual-role device was never contacted
+```
+
+**Fixed** with `PushService.sendToAll()`, used by the urgent broadcast. Same
+run after the fix: **2 attempts**.
+
+Failures also now name the endpoint host. `Push failed (unknown)` gave no way
+to tell one dead endpoint from a misconfigured deployment; it now reads
+`Push failed for fcm.googleapis.com (410)`.
+
+*Nuance left alone deliberately:* the notification **bell** still sends
+residents `🚨 <title>` and staff `🚨 Urgent broadcast sent: <title>`, so a
+dual-role user gets the staff-phrased line. They are informed either way, and
+widening the resident query would ring their bell twice.
+
+### 10b. Nothing was reaching any phone because nothing had ever subscribed
+
+`push_subscriptions` held **zero rows**. The server was never the problem:
+
+```
+VAPID_PUBLIC_KEY   87 chars        GET /push/key -> enabled: true
+VAPID_PRIVATE_KEY  43 chars        no "VAPID keys not set" warning at boot
+VAPID_SUBJECT      mailto:brgy591dist6@gmail.com
+```
+
+The server→device path is verified end to end. `web-push` was asked to build
+the exact request it would put on the wire, and the body was then decrypted
+with the subscriber's private key the way a service worker does:
+
+```
+POST https://fcm.googleapis.com/fcm/send/…
+TTL: 3600   Urgency: high   Content-Encoding: aes128gcm
+Authorization: vapid t=eyJ0eXAiOiJKV1QiLCJh…  (345 chars, signed with our keys)
+body: 250 bytes
+decrypted: {"title":"🚨 …","body":"…","url":"/resident/announcements","tag":"announcement-…"}
+```
+
+Those four fields are exactly what `sw.js` reads, so a subscribed browser would
+render the notification.
+
+**So the gap is the subscribe step, and it is the secure-context rule** (§8).
+Browsers expose `navigator.serviceWorker` only on `https://` or `localhost`. A
+phone on `http://192.168.x.x:5173` cannot subscribe at all.
+
+| Where you test | Can subscribe? |
+|---|---|
+| `http://localhost:5173` on this Mac | **yes** — secure context, works today |
+| `http://192.168.x.x:5173` on a phone | no — needs one of the §8 routes |
+| deployed over `https://` | yes |
+
+**What is still unverified:** actual receipt on a physical device. That needs a
+real browser subscribing from a secure origin, which cannot be done headlessly.
+Everything up to and including the encrypted, signed payload is proven.
+
+Covered by 4 new regression checks (`54 / 54`), which register a resident and a
+dual-role device, fire an urgent broadcast, assert **both** were attempted, and
+unsubscribe afterwards.
+
+
+---
+
 ## Known caveats
 
 **Permission changes are stale in the UI until `/users/me` refetches.** The API
@@ -382,7 +463,7 @@ giving the worker its own output directory.
 ## Verification
 
 Typecheck clean across `@brgy/shared`, `@brgy/api`, `@brgy/web`.
-Regression suite **50 / 50** after each change. Web bundle builds clean.
+Regression suite **54 / 54** after each change. Web bundle builds clean.
 
 Checks run against the live system rather than assumed:
 
@@ -392,6 +473,8 @@ non-head        → sees nobody
 cross-household → BLOCKED
 module revoked  → /masterlist 403, /complaints/queue 200, same token
 dual role       → staff module revoked; resident side still 200, staff side 403
+urgent push     → 2 devices registered (1 resident, 1 dual-role), both attempted
+push payload    → VAPID-signed, aes128gcm, decrypts to the fields sw.js reads
 urgent push     → "0 delivered, 1 dead endpoint(s) pruned"   (synthetic endpoint)
 login + 2FA     → password → challenge → emailed code → token
 ```

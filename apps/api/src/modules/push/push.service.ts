@@ -88,8 +88,27 @@ export class PushService {
    */
   async sendToUsers(userIds: string[], payload: PushPayload): Promise<{ sent: number; pruned: number }> {
     if (!this.enabled || !userIds.length) return { sent: 0, pruned: 0 };
+    return this.deliver(await this.subs.find({ where: { userId: In(userIds) } }), payload);
+  }
 
-    const rows = await this.subs.find({ where: { userId: In(userIds) } });
+  /**
+   * Send to every registered device, whoever it belongs to.
+   *
+   * For a barangay-wide emergency advisory the audience is not a role — it is
+   * everyone who asked to be told. Scoping the fan-out by `role = RESIDENT`
+   * silently skipped two groups who had opted in: a staff member who is also a
+   * resident of the barangay (dual role), and any employee who turned alerts
+   * on. Subscribing is the consent, so the subscription is the address list.
+   */
+  async sendToAll(payload: PushPayload): Promise<{ sent: number; pruned: number }> {
+    if (!this.enabled) return { sent: 0, pruned: 0 };
+    return this.deliver(await this.subs.find(), payload);
+  }
+
+  private async deliver(
+    rows: PushSubscription[],
+    payload: PushPayload,
+  ): Promise<{ sent: number; pruned: number }> {
     if (!rows.length) return { sent: 0, pruned: 0 };
 
     const body = JSON.stringify(payload);
@@ -108,7 +127,19 @@ export class PushService {
         } catch (err: any) {
           const status = err?.statusCode;
           if (status === 404 || status === 410) dead.push(row.id);
-          else this.logger.warn(`Push failed (${status ?? 'unknown'}): ${String(err?.message ?? err)}`);
+          else {
+            // Name the host: a bare "Push failed (unknown)" gives no way to tell
+            // one dead endpoint from a misconfigured deployment.
+            let host = row.endpoint;
+            try {
+              host = new URL(row.endpoint).host;
+            } catch {
+              /* keep the raw value if it will not parse */
+            }
+            this.logger.warn(
+              `Push failed for ${host} (${status ?? 'no status'}): ${String(err?.message ?? err)}`,
+            );
+          }
         }
       }),
     );
