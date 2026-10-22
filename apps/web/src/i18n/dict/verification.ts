@@ -90,4 +90,20 @@ export const verification: Record<string, string> = {
   '✅ "{name}" enabled.': '✅ Na-enable ang "{name}".',
   Disable: 'I-disable',
   Enable: 'I-enable',
+
+  // Filters and pagination added with the queue toolbars.
+  'Awaiting review': 'Hinihintay ang pagsusuri',
+  'All submissions': 'Lahat ng isinumite',
+  'Any OCR result': 'Anumang resulta ng OCR',
+  'Clean match': 'Malinaw na tugma',
+  'Partial or no match': 'Bahagya o walang tugma',
+  'Could not be read': 'Hindi mabasa',
+  'Surname changed by marriage': 'Nagbago ang apelyido dahil sa kasal',
+  'Marriage certificate': 'Kasulatan ng kasal',
+  'Marriage Certificate': 'Kasulatan ng Kasal',
+  'No certificate attached': 'Walang nakalakip na kasulatan',
+  'My surname changed when I married': 'Nagbago ang apelyido ko noong nag-asawa ako',
+  'Tick this if the name on the document above is your maiden name. Attach your marriage certificate and we will read both together, so the surname difference does not count against you.': 'Lagyan ng tsek kung ang pangalan sa dokumento sa itaas ay ang dalaga mong pangalan. Ilakip ang kasulatan ng kasal at sabay naming babasahin ang dalawa, kaya hindi ibibilang sa laban sa iyo ang pagkakaiba ng apelyido.',
+  'Attach a photo of your marriage certificate.': 'Ilakip ang larawan ng kasulatan ng kasal.',
+  'Photo of your marriage certificate — JPG, PNG, or WebP · max 8 MB': 'Larawan ng kasulatan ng kasal — JPG, PNG, o WebP · hanggang 8 MB',
 };

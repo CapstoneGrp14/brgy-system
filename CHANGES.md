@@ -4,7 +4,7 @@ Everything below sits in the working tree on top of `a114083`. Nothing here is
 committed yet.
 
 ```
-38 files changed, 813 insertions(+), 163 deletions(-)   plus 11 new files
+39 files changed, 989 insertions(+), 137 deletions(-)   plus 6 new files
 ```
 
 ---
@@ -113,7 +113,8 @@ node -e "console.log(require('web-push').generateVAPIDKeys())"
 ```
 
 **iOS needs install-to-home-screen.** Safari only delivers web push to an
-installed PWA, and there is no manifest yet. Android and desktop work as-is.
+installed PWA. A manifest now exists, so this is possible — but see §8: every
+platform, Android included, needs an `https://` origin first.
 
 ---
 
@@ -130,6 +131,164 @@ installed PWA, and there is no manifest yet. Android and desktop work as-is.
 The mockup's **"← Back to Homepage"** link was left out: `/` redirects straight
 to `/login`, so it would loop on itself. A comment marks where it goes if a
 landing page is ever built.
+
+---
+
+## 5. Marriage certificate is now supporting evidence, not its own document
+
+It was offered as an entry in the verification dropdown, which read as "this
+document alone verifies you" — and it does not. A marriage certificate often
+carries **no address at all**, and is issued by the municipality where the
+wedding took place rather than where the couple lives, so on its own it
+evidences neither residency nor current identity.
+
+What it genuinely proves is the one thing a birth certificate cannot: that the
+maiden surname printed there and the married surname in the census belong to
+the same person.
+
+So it now attaches **to** a primary document, behind an explicit declaration:
+
+> ☐ **My surname changed when I married**
+> Tick this if the name on the document above is your maiden name.
+
+Ticking it reveals a second upload. Then:
+
+- **Both images are OCR'd into one text pool.** The married surname usually
+  appears only on the certificate, so reading the two documents separately
+  would fail the very case this exists for.
+- **The surname tolerance is narrow and evidenced.** `allowSurnameChange` lets
+  *one* name part differ — all the others must still match. A different person
+  with a marriage certificate attached still scores NO_MATCH.
+- **The declaration does not stand on the resident's word.** Without the
+  certificate the submission is rejected with a 400; the file is checked by
+  magic bytes like the primary document, because staff open it during review.
+- **Staff see why a mismatch was tolerated** — the row shows *Surname changed
+  by marriage* with a link to the certificate, and the OCR checklist spells out
+  "2 of 3 name parts matched — surname change evidenced by marriage certificate".
+
+The type row is **deactivated, not deleted**: submissions already filed against
+it keep their label, and admin Verification Settings shows it switched off
+rather than silently losing a row.
+
+Measured on the matcher directly:
+
+```
+maiden surname, no declaration   -> PARTIAL    55%   NAME missing (required)
+maiden surname, with certificate -> MATCH     100%   NAME satisfied
+different person, with cert      -> NO_MATCH   20%   NAME missing (required)
+```
+
+| | |
+|---|---|
+| Migration | `1753800000000-marriage-cert-supporting` |
+| Columns | `verification_submissions.surname_changed_by_marriage`, `.supporting_upload_id` |
+
+---
+
+## 6. Search, filters and pagination on every queue
+
+Ten screens were named; they are **seven components** — the admin portal reuses
+Health & Medicine, Inventory and Student Support rather than duplicating them.
+
+Two shared pieces do the work, so the controls behave identically everywhere:
+`useTableView()` (search + filter + paging over a list the client already holds)
+and `TableToolbar` / `Pagination`.
+
+Filtering is **client-side on purpose**: these queues are bounded by the size of
+one barangay, and their hooks already fetch the whole set to compute the header
+counts. A round-trip per keystroke would make the filters feel slower than
+scrolling.
+
+| Screen | Search by | Filters |
+|---|---|---|
+| Health & Medicine *(resident)* | request, status | medicine / equipment |
+| Complaints & Blotter | case, party, Lupon member | status · timeline · filing type |
+| Resident Verification | resident, document | review stage · OCR result |
+| Booking Calendar | resident, facility, purpose | conflicts · outcome |
+| Health & Medicine *(staff)* | resident, request | type · stage |
+| Inventory & Supplies | item name | category · stock level |
+| Student Support | student, file | needs-action · upload vs drop-off |
+
+Details that matter more than the controls themselves:
+
+- **"Nothing matched" and "nothing exists" are different news.** Every table
+  distinguishes them; a stray search used to read as an empty register.
+- **Recent Decisions on the Booking Calendar was hard-capped at ten rows** by a
+  `.slice(0, 10)`, silently hiding the rest. Paging shows the same ten at a
+  time and admits there are more.
+- **The Verification queue defaults to "Awaiting review"** — it keeps the last
+  30 decisions alongside pending work, and yesterday's approvals were crowding
+  out today's queue.
+- **A filter that shrinks the list cannot strand you past the last page**,
+  which would render as an empty table rather than as "no results".
+- Counts read `3 of 48` while narrowed, so a filtered table never looks like
+  lost records.
+
+New strings are translated into Filipino, including the shared toolbar.
+
+---
+
+## 7. Bookings and Student Support can be filed for a minor
+
+The **"Who is this for?"** picker from Documents now also appears on Bookings
+and Student Support — a parent reserving the covered court for a child's party,
+or printing a child's schoolwork, is the ordinary case for both.
+
+Authority is re-derived server-side exactly as it is for documents: a submitted
+`beneficiaryCensusRecordId` is never trusted, the server rebuilds the caller's
+permitted list, and anything outside it is a 403.
+
+Verified against the live system:
+
+```
+GET /requests/dependants        -> Miguel Potolin (13)
+booking for Miguel              -> "For Miguel Potolin — Birthday Party"
+booking, cross-household id     -> 403
+booking for myself              -> "Zumba"            (no prefix)
+printing for Miguel             -> "… — for Miguel Potolin"
+printing, cross-household id    -> 403
+```
+
+| | |
+|---|---|
+| Migration | `1753790000000-booking-beneficiary` |
+| Column | `bookings.beneficiary_census_record_id` |
+| Extracted | `HouseholdAuthorityService` — shared by requests and bookings |
+
+---
+
+## 8. Why Android push never fired
+
+The server was fine. `GET /push/key` returned a key with `enabled: true`, the
+service worker and payload contract matched — and `push_subscriptions` held
+**zero rows**. The phone never subscribed, so an urgent broadcast had nobody to
+send to. Android's own notification setting being switched on was a red herring:
+the site had never asked.
+
+The cause is the **secure-context rule**. Browsers expose
+`navigator.serviceWorker` only on `https://` or `localhost`. A phone opening the
+dev server at `http://192.168.x.x:5173` has no service worker at all, so the
+opt-in card — which rendered only when push was usable — rendered *nothing*.
+There was no control to subscribe with and no explanation of why.
+
+**What changed:** the unavailable states now render a card that says which wall
+you hit — insecure origin, unsupported browser, or a server without keys — and
+confirms that the banner, bell and email still work. The silence was
+indistinguishable from the feature being broken.
+
+**To actually receive push on a phone, the origin must be secure.** Pick one:
+
+| Route | How |
+|---|---|
+| Deploy with TLS *(real fix)* | serve the portal over `https://` and set `VAPID_*` on the server |
+| Tunnel, for a demo | `cloudflared tunnel --url http://localhost:5173` → use the https URL |
+| Chrome Android flag, for dev | `chrome://flags/#unsafely-treat-insecure-origin-as-secure` → add `http://192.168.x.x:5173` → Relaunch |
+
+The manifest also stopped declaring the logo as a **maskable** icon. It has no
+safe-area padding, and Android crops a maskable icon into an adaptive shape,
+which clipped the seal. Without the claim it is letterboxed on a background
+instead. Add a padded 512×512 variant to reinstate it.
+
 
 ---
 
@@ -154,7 +313,7 @@ giving the worker its own output directory.
 ## Verification
 
 Typecheck clean across `@brgy/shared`, `@brgy/api`, `@brgy/web`.
-Regression suite **40 / 40** after each change.
+Regression suite **40 / 40** after each change. Web bundle builds clean.
 
 Checks run against the live system rather than assumed:
 

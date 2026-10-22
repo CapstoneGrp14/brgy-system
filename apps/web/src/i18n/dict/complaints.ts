@@ -134,4 +134,11 @@ export const complaints: Record<string, string> = {
   '(OVERDUE)': '(LAMPAS SA TAKDA)',
   '📎 Open attached evidence': '📎 Buksan ang nakalakip na ebidensya',
   'None attached': 'Walang nakalakip',
+
+  // Filters and pagination added with the queue toolbars.
+  'Any timeline': 'Anumang takdang panahon',
+  'Past mediation deadline': 'Lipas na sa takdang mediation',
+  'All filing types': 'Lahat ng uri ng paghahain',
+  'Resident-filed': 'Hinain ng residente',
+  'Staff blotter': 'Blotter ng kawani',
 };

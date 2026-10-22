@@ -35,7 +35,7 @@ export class OcrConsumer implements OnModuleInit {
       const { submissionId } = msg as { submissionId: string };
       const submission = await this.submissions.findOne({
         where: { id: submissionId },
-        relations: { user: true, upload: true },
+        relations: { user: true, upload: true, supportingUpload: true },
       });
       if (!submission) {
         this.logger.warn(`ocr job for unknown submission ${submissionId}`);
@@ -50,11 +50,23 @@ export class OcrConsumer implements OnModuleInit {
           return;
         }
 
-        const image = await this.storage.getObject(submission.upload.bucket, submission.upload.objectKey);
         const worker = await createWorker('eng');
-        const {
-          data: { text },
-        } = await worker.recognize(image);
+        const read = async (bucket: string, key: string) => {
+          const image = await this.storage.getObject(bucket, key);
+          const { data } = await worker.recognize(image);
+          return data.text;
+        };
+        let text = await read(submission.upload.bucket, submission.upload.objectKey);
+        // Read the marriage certificate into the same text pool. The married
+        // surname the census holds usually appears only there, so matching the
+        // two documents separately would fail the very case this supports.
+        if (submission.supportingUpload) {
+          const supportingText = await read(
+            submission.supportingUpload.bucket,
+            submission.supportingUpload.objectKey,
+          );
+          text = `${text}\n--- MARRIAGE CERTIFICATE ---\n${supportingText}`;
+        }
         await worker.terminate();
 
         // Cross-check against the linked census record; fall back to the account name.
@@ -75,6 +87,7 @@ export class OcrConsumer implements OnModuleInit {
             docLabel: submission.docType,
           },
           docType?.ocrFields ?? undefined,
+          { allowSurnameChange: submission.surnameChangedByMarriage },
         );
         await this.submissions.update(
           { id: submission.id },
@@ -87,7 +100,9 @@ export class OcrConsumer implements OnModuleInit {
         this.audit.log({
           actorLabel: 'OCR Census Cross-Check',
           action: `OCR ${verdict === 'MATCH' ? 'Matched' : verdict === 'PARTIAL' ? 'Partially Matched' : 'Found No Match'} (${score}%)`,
-          target: `Resident: ${submission.user.fullName} · Matched: ${ticked.join(', ') || 'nothing'}${
+          target: `Resident: ${submission.user.fullName}${
+            submission.surnameChangedByMarriage ? ' (surname change declared)' : ''
+          } · Matched: ${ticked.join(', ') || 'nothing'}${
             missingRequired.length ? ` · Missing required: ${missingRequired.join(', ')}` : ''
           }`.slice(0, 255),
         });

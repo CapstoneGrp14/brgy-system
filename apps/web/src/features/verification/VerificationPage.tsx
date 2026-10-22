@@ -3,7 +3,10 @@ import { useState } from 'react';
 import { useDecideVerification, useVerificationQueue } from '../../api/verification';
 import { btnBusy, btnPrimary, card, cols, errorText, input, label, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { Modal } from '../../components/ui/Modal';
+import { Select } from '../../components/ui/Select';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
 import { fmtDateLong } from '../../components/ui/status';
+import { useTableView } from '../../hooks/useTableView';
 import { useT, type TFunc } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
@@ -86,6 +89,27 @@ export function VerificationPage() {
 
   const minLen = pending?.approve ? APPROVE_NOTE_MIN : REJECT_NOTE_MIN;
 
+  // The queue keeps the last 30 decisions alongside what is still pending, so
+  // the default view is "awaiting review" — otherwise yesterday's approvals
+  // crowd out the work. Verdict filtering matters separately: a reviewer who
+  // only has ten minutes takes the clean matches first.
+  const [stage, setStage] = useState('PENDING');
+  const [verdict, setVerdict] = useState('all');
+  const view = useTableView(
+    data?.items,
+    (s) => `${s.residentName} ${s.docType} ${s.fileName}`,
+    {
+      resetKey: `${stage}|${verdict}`,
+      filters: [
+        stage !== 'all' && ((s) => s.status === stage),
+        verdict === 'match' && ((s) => s.ocrVerdict === 'MATCH'),
+        verdict === 'needs-eyes' && ((s) => s.ocrVerdict === 'PARTIAL' || s.ocrVerdict === 'NO_MATCH'),
+        verdict === 'unread' && ((s) => s.ocrVerdict === 'MANUAL' || s.ocrVerdict === 'ERROR'),
+        verdict === 'marriage' && ((s) => s.surnameChangedByMarriage),
+      ],
+    },
+  );
+
   const closeDialog = () => {
     setPending(null);
     setNote('');
@@ -127,6 +151,34 @@ export function VerificationPage() {
         {data && data.pendingCount > 0 && ` · ${t('{n} awaiting review', { n: data.pendingCount })}`}
       </p>
 
+      <TableToolbar view={view} placeholder={t('Search resident or document…')}>
+        <Select
+          value={stage}
+          onChange={setStage}
+          compact
+          options={[
+            { value: 'PENDING', labelText: t('Awaiting review') },
+            { value: 'APPROVED', labelText: t('Approved') },
+            { value: 'REJECTED', labelText: t('Rejected') },
+            { value: 'all', labelText: t('All submissions') },
+          ]}
+          style={{ width: 170 }}
+        />
+        <Select
+          value={verdict}
+          onChange={setVerdict}
+          compact
+          options={[
+            { value: 'all', labelText: t('Any OCR result') },
+            { value: 'match', labelText: t('Clean match') },
+            { value: 'needs-eyes', labelText: t('Partial or no match') },
+            { value: 'unread', labelText: t('Could not be read') },
+            { value: 'marriage', labelText: t('Surname changed by marriage') },
+          ]}
+          style={{ width: 210 }}
+        />
+      </TableToolbar>
+
       <div style={{ overflowX: 'auto' }}>
         <table style={tableFixed(760)}>
           <colgroup>
@@ -144,12 +196,16 @@ export function VerificationPage() {
             </tr>
           </thead>
           <tbody>
-            {(data?.items ?? []).length === 0 && (
+            {view.rows.length === 0 && (
               <tr>
-                <td style={{ ...td, color: '#8A97AB' }} colSpan={5}>{t('No verification submissions yet.')}</td>
+                <td style={{ ...td, color: '#8A97AB' }} colSpan={5}>
+                  {view.total === 0
+                    ? t('No verification submissions yet.')
+                    : t('No submissions match this search or filter.')}
+                </td>
               </tr>
             )}
-            {(data?.items ?? []).map((s) => (
+            {view.rows.map((s) => (
               <tr key={s.id}>
                 <td style={{ ...td, fontWeight: 700 }}>{s.residentName}</td>
                 <td style={td}>
@@ -157,6 +213,30 @@ export function VerificationPage() {
                     {s.fileName}
                   </a>
                   <div style={{ fontSize: 11.5, color: '#8A97AB', marginTop: 2 }}>{docLabel(t, s.docType)}</div>
+                  {/* The declaration is why a surname mismatch was tolerated,
+                      so it is stated on the row rather than left for staff to
+                      infer from the checklist note. */}
+                  {s.surnameChangedByMarriage && (
+                    <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed #E4EAF3' }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#C96A11' }}>
+                        {t('Surname changed by marriage')}
+                      </div>
+                      {s.supportingFileUrl ? (
+                        <a
+                          href={s.supportingFileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: 12, fontWeight: 600 }}
+                        >
+                          {s.supportingFileName ?? t('Marriage certificate')}
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: 11.5, color: '#8A97AB' }}>
+                          {t('No certificate attached')}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td style={td}>
                   {ocrPill(t, s.ocrVerdict, s.matchScore)}
@@ -204,6 +284,8 @@ export function VerificationPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination view={view} />
 
       {pending && (
         <Modal

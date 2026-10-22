@@ -17,9 +17,10 @@ export function AnnouncementsFeedPage() {
   const items = (feed?.items ?? []).filter((a) => a.channelBanner || a.urgent);
   const years = feed?.years ?? [];
 
-  // Opt-in for urgent push. Shown only where it can actually work: browsers
-  // without support, or a deployment with no VAPID keys, get nothing rather
-  // than a control that silently fails.
+  // Opt-in for urgent push. Where it cannot work the card still renders and
+  // says why — silence was indistinguishable from the feature being broken,
+  // which is exactly how it read on a phone opening the portal over plain
+  // http:// (no secure context, so no service worker, so no card at all).
   const toast = useUiStore((st) => st.toast);
   const [push, setPush] = useState<PushState>('unsupported');
   const [pushBusy, setPushBusy] = useState(false);
@@ -45,6 +46,25 @@ export function AnnouncementsFeedPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 780 }}>
+      {(push === 'insecure' || push === 'unsupported' || push === 'disabled') && (
+        <div style={{ ...card, padding: '14px 18px' }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1E3A5F' }}>
+            {t('Urgent alerts are not available on this device')}
+          </div>
+          <div style={{ fontSize: 12.5, color: '#64748B', marginTop: 3, lineHeight: 1.55 }}>
+            {push === 'insecure' &&
+              t('Browsers only allow notifications over a secure (https) address. Open the portal at its https address — on a plain http address, including a local network IP, the browser blocks them before the portal is asked.')}
+            {push === 'unsupported' &&
+              t('This browser does not support web notifications. On iPhone, add the portal to your Home Screen first; on Android, use Chrome.')}
+            {push === 'disabled' &&
+              t('Notifications are not configured on this server yet. Ask the barangay IT staff to set the push keys.')}
+          </div>
+          <div style={{ fontSize: 12.5, color: '#8A97AB', marginTop: 6, lineHeight: 1.55 }}>
+            {t('You will still see urgent announcements here, in the notification bell, and by email.')}
+          </div>
+        </div>
+      )}
+
       {(push === 'default' || push === 'granted' || push === 'denied') && (
         <div style={{ ...card, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>

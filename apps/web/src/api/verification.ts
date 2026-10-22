@@ -55,10 +55,19 @@ export function useToggleDocType() {
 export function useSubmitVerification() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { docTypeId: string; file: File }) => {
+    mutationFn: async (input: {
+      docTypeId: string;
+      file: File;
+      surnameChangedByMarriage?: boolean;
+      supportingFile?: File | null;
+    }) => {
       const form = new FormData();
       form.append('docTypeId', input.docTypeId);
       form.append('file', input.file);
+      if (input.surnameChangedByMarriage) {
+        form.append('surnameChangedByMarriage', 'true');
+        if (input.supportingFile) form.append('supportingFile', input.supportingFile);
+      }
       return (await api.post<MyVerificationDto>('/verification/submit', form)).data;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['verification'] }),

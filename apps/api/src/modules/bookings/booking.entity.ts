@@ -30,6 +30,10 @@ export class Booking {
   user: User;
 
   @Index()
+  /** Minor this booking is for, when a head of family reserved on their behalf. */
+  @Column({ name: 'beneficiary_census_record_id', type: 'varchar', length: 36, nullable: true })
+  beneficiaryCensusRecordId: string | null;
+
   @Column({ name: 'user_id', type: 'varchar', length: 36 })
   userId: string;
 

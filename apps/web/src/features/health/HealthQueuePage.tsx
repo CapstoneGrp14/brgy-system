@@ -1,10 +1,14 @@
 import type { RequestDto } from '@brgy/shared';
 import { RequestType } from '@brgy/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { api } from '../../api/client';
 import { useAdvanceRequest } from '../../api/requests';
 import { card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { Select } from '../../components/ui/Select';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
 import { STATUS_PILL, deadlineChip, fmtDate, pillForRequest } from '../../components/ui/status';
+import { useTableView } from '../../hooks/useTableView';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
@@ -22,6 +26,25 @@ export function HealthQueuePage() {
   const advance = useAdvanceRequest();
   const toast = useUiStore((s) => s.toast);
   const t = useT();
+
+  // Two questions a clerk actually arrives with: "where is Mrs Dela Cruz's
+  // request?" and "what still needs doing?" — hence a name search and an
+  // open/settled filter rather than one dropdown per column.
+  const [kind, setKind] = useState('all');
+  const [stage, setStage] = useState('all');
+  const view = useTableView(
+    items,
+    (r) => `${r.title} ${r.residentName} ${r.purpose ?? ''}`,
+    {
+      resetKey: `${kind}|${stage}`,
+      filters: [
+        kind !== 'all' && ((r) => r.type === kind),
+        stage === 'open' && ((r) => r.status !== 'CLOSED' && r.status !== 'REJECTED'),
+        stage === 'overdue' && ((r) => deadlineChip(r).kind === 'red' && r.status !== 'CLAIMED' && r.status !== 'CLOSED' && r.status !== 'REJECTED'),
+        stage === 'settled' && ((r) => r.status === 'CLOSED' || r.status === 'REJECTED'),
+      ],
+    },
+  );
 
   const onAction = async (id: string) => {
     try {
@@ -42,6 +65,32 @@ export function HealthQueuePage() {
         <strong> {t('Returned')}</strong> {t('puts the unit back into inventory.')}
       </p>
 
+      <TableToolbar view={view} placeholder={t('Search resident or request…')}>
+        <Select
+          value={kind}
+          onChange={setKind}
+          compact
+          options={[
+            { value: 'all', labelText: t('All types') },
+            { value: RequestType.MEDICINE, labelText: t('Medicine') },
+            { value: RequestType.EQUIPMENT, labelText: t('Equipment') },
+          ]}
+          style={{ width: 150 }}
+        />
+        <Select
+          value={stage}
+          onChange={setStage}
+          compact
+          options={[
+            { value: 'all', labelText: t('All statuses') },
+            { value: 'open', labelText: t('Still open') },
+            { value: 'overdue', labelText: t('Past ARTA deadline') },
+            { value: 'settled', labelText: t('Closed or rejected') },
+          ]}
+          style={{ width: 180 }}
+        />
+      </TableToolbar>
+
       <div style={{ overflowX: 'auto' }}>
         <table style={tableFixed(900)}>
           <colgroup>
@@ -60,10 +109,13 @@ export function HealthQueuePage() {
             </tr>
           </thead>
           <tbody>
-            {(items ?? []).length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>{t('No health requests. 🎉')}</td></tr>
+            {view.rows.length === 0 && (
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>
+                {/* "Nothing matched" and "nothing exists" are different news. */}
+                {view.total === 0 ? t('No health requests. 🎉') : t('No requests match this search or filter.')}
+              </td></tr>
             )}
-            {(items ?? []).map((r) => {
+            {view.rows.map((r) => {
               const chip = deadlineChip(r);
               const status = pillForRequest(r);
               const settled = r.status === 'CLOSED' || r.status === 'REJECTED';
@@ -103,6 +155,7 @@ export function HealthQueuePage() {
         </table>
       </div>
 
+      <Pagination view={view} />
     </div>
   );
 }

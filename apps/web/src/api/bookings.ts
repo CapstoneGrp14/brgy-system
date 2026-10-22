@@ -70,6 +70,8 @@ export interface CreateBookingInput {
   timeSlot: string;
   purpose?: string;
   fromSuggestion?: boolean;
+  /** A minor in the caller's household; re-derived server-side, never trusted. */
+  beneficiaryCensusRecordId?: string;
 }
 
 /** Extracts the 409 conflict payload, or null for other errors. */

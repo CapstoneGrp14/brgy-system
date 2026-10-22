@@ -30,8 +30,7 @@ import { DocTypesService } from '../templates/doc-types.service';
 import { QUEUES, QueueService } from '../queue/queue.service';
 import { StorageService } from '../storage/storage.service';
 import { DocumentTypeSetting } from '../templates/document-type-setting.entity';
-import { CensusRecord } from '../masterlist/census-record.entity';
-import { Household } from '../masterlist/household.entity';
+import { HouseholdAuthorityService } from '../masterlist/household-authority.service';
 import { ResidentProfile } from '../users/resident-profile.entity';
 import { Upload } from '../verification/upload.entity';
 import { RequestEvent } from './request-event.entity';
@@ -62,8 +61,7 @@ export class RequestsService {
     @InjectRepository(DocumentTypeSetting)
     private readonly typeSettings: Repository<DocumentTypeSetting>,
     @InjectRepository(Upload) private readonly uploads: Repository<Upload>,
-    @InjectRepository(CensusRecord) private readonly census: Repository<CensusRecord>,
-    @InjectRepository(Household) private readonly households: Repository<Household>,
+    private readonly household: HouseholdAuthorityService,
     private readonly inventory: InventoryService,
     private readonly docTypes: DocTypesService,
     private readonly audit: AuditService,
@@ -188,69 +186,6 @@ export class RequestsService {
   }
 
 
-  /** Age in whole years from an ISO birthdate. */
-  private static ageFrom(birthdate: string | Date | null): number | null {
-    if (!birthdate) return null;
-    const bd = new Date(String(birthdate).slice(0, 10) + 'T00:00:00');
-    if (Number.isNaN(bd.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - bd.getFullYear();
-    const m = now.getMonth() - bd.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < bd.getDate())) age--;
-    return age;
-  }
-
-  /**
-   * Minors in the caller's household that they may file for.
-   *
-   * Only the head of the household gets a non-empty list. Members are included
-   * when they are under 18 AND hold no portal account of their own — an older
-   * teenager who has registered files for themselves, so listing them here
-   * would let the head act for someone able to act for themselves.
-   */
-  async dependantsFor(userId: string): Promise<DependantDto[]> {
-    const profile = await this.profiles.findOne({ where: { userId } });
-    if (!profile?.censusRecordId) return [];
-
-    const household = await this.households.findOne({
-      where: { headCensusRecordId: profile.censusRecordId },
-    });
-    if (!household) return []; // not a head of family
-
-    const members = await this.census.find({
-      where: { householdId: household.id, isActive: true },
-    });
-    const claimed = new Set(
-      (
-        await this.profiles.find({
-          where: { censusRecordId: In(members.map((m) => m.id)) },
-        })
-      ).map((p) => p.censusRecordId),
-    );
-
-    return members
-      .filter((m) => m.id !== profile.censusRecordId && !claimed.has(m.id))
-      .map((m) => ({ record: m, age: RequestsService.ageFrom(m.birthdate) }))
-      .filter((x): x is { record: CensusRecord; age: number } => x.age !== null && x.age < 18)
-      .map(({ record, age }) => ({ censusRecordId: record.id, fullName: record.fullName, age }));
-  }
-
-  /**
-   * Confirm the caller may file for this census record, and return its name.
-   * Re-derives the dependant list rather than trusting the submitted id, so a
-   * crafted request cannot name an arbitrary resident.
-   */
-  private async resolveBeneficiary(userId: string, censusRecordId: string): Promise<string> {
-    const allowed = await this.dependantsFor(userId);
-    const hit = allowed.find((d) => d.censusRecordId === censusRecordId);
-    if (!hit) {
-      throw new ForbiddenException(
-        'You can only request on behalf of a minor in your own household, and only as its registered head of family.',
-      );
-    }
-    return hit.fullName;
-  }
-
   async createDocumentRequest(user: RequestUser, dto: CreateDocumentRequestDto): Promise<RequestDto> {
     const meta = await this.docTypes.find(dto.documentType);
     if (!meta || !meta.isActive) throw new BadRequestException('Unknown document type.');
@@ -267,7 +202,7 @@ export class RequestsService {
     // Filing for a minor is an authority claim, so it is checked against the
     // household registry rather than taken from the request body.
     const beneficiaryName = dto.beneficiaryCensusRecordId
-      ? await this.resolveBeneficiary(user.id, dto.beneficiaryCensusRecordId)
+      ? await this.household.resolveBeneficiary(user.id, dto.beneficiaryCensusRecordId)
       : null;
 
     const filedAt = new Date();
@@ -324,12 +259,14 @@ export class RequestsService {
       title: string;
       purpose: string | null;
       payload?: Record<string, unknown>;
+      beneficiaryCensusRecordId?: string | null;
     },
   ): Promise<ServiceRequest> {
     const filedAt = new Date();
     const request = await this.requests.save(
       this.requests.create({
         userId: user.id,
+        beneficiaryCensusRecordId: data.beneficiaryCensusRecordId ?? null,
         type: data.type,
         subtype: data.subtype,
         title: data.title,
@@ -403,10 +340,14 @@ export class RequestsService {
   /** Student free printing / laminating (FR-7.1). */
   async createPrintingRequest(
     user: RequestUser,
-    dto: { serviceType: string; copies: number },
+    dto: { serviceType: string; copies: number; beneficiaryCensusRecordId?: string },
     file?: Express.Multer.File,
   ): Promise<RequestDto> {
     await this.requireVerified(user);
+    // A parent printing schoolwork for their child is the ordinary case here.
+    const beneficiaryName = dto.beneficiaryCensusRecordId
+      ? await this.household.resolveBeneficiary(user.id, dto.beneficiaryCensusRecordId)
+      : null;
     let uploadId: string | null = null;
     if (file) {
       const key = `printing/${user.id}/${randomUUID()}`;
@@ -428,9 +369,12 @@ export class RequestsService {
     const request = await this.fileServiceRequest(user, {
       type: RequestType.PRINTING,
       subtype: 'STUDENT_PRINTING',
-      title: `${dto.serviceType} — ${dto.copies} ${dto.copies === 1 ? 'copy' : 'copies'}`,
+      title: beneficiaryName
+        ? `${dto.serviceType} — ${dto.copies} ${dto.copies === 1 ? 'copy' : 'copies'} — for ${beneficiaryName}`
+        : `${dto.serviceType} — ${dto.copies} ${dto.copies === 1 ? 'copy' : 'copies'}`,
       purpose: file ? file.originalname : 'Drop-off at Barangay Hall',
       payload: { serviceType: dto.serviceType, copies: dto.copies, uploadId },
+      beneficiaryCensusRecordId: dto.beneficiaryCensusRecordId ?? null,
     });
     await this.notifications.notifyStaff(`🖨️ ${request.title} — ${user.fullName}`, 'request');
     return this.toDto(request, await this.releaseModes());

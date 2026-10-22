@@ -72,4 +72,39 @@ export const common: Record<string, string> = {
   // Time-ago fragments (shared by drawers/lists)
   'just now': 'ngayon lang',
   'Just now': 'Ngayon lang',
+
+  // Table toolbar: search, filters, and paging. Shared across every queue, so
+  // they live here rather than being retranslated per screen.
+  '{n} of {total}': '{n} sa {total}',
+  '{n} record': '{n} talaan',
+  '{n} records': '{n} na talaan',
+  'Showing {from}–{to} of {n}': 'Ipinapakita ang {from}–{to} sa {n}',
+  'Page {page} of {pageCount}': 'Pahina {page} sa {pageCount}',
+  'All statuses': 'Lahat ng katayuan',
+  'All types': 'Lahat ng uri',
+  'All categories': 'Lahat ng kategorya',
+  'All requests': 'Lahat ng kahilingan',
+  'Still open': 'Bukas pa',
+  'Needs action': 'Kailangan ng aksyon',
+  Done: 'Tapos na',
+  Unresolved: 'Hindi pa naresolba',
+  'No requests match this search or filter.': 'Walang kahilingang tumugma sa paghahanap o pansala.',
+  'No cases match this search or filter.': 'Walang kasong tumugma sa paghahanap o pansala.',
+  'No items match this search or filter.': 'Walang aytem na tumugma sa paghahanap o pansala.',
+  'No submissions match this search or filter.': 'Walang isinumiteng tumugma sa paghahanap o pansala.',
+  'No decisions match this search or filter.': 'Walang desisyong tumugma sa paghahanap o pansala.',
+  'No pending bookings match this search or filter.': 'Walang nakabinbing reserbasyong tumugma sa paghahanap o pansala.',
+  'Search resident or request…': 'Hanapin ang residente o kahilingan…',
+  'Search resident or document…': 'Hanapin ang residente o dokumento…',
+  'Search resident or facility…': 'Hanapin ang residente o pasilidad…',
+  'Search student or file…': 'Hanapin ang estudyante o file…',
+  'Search item name…': 'Hanapin ang pangalan ng aytem…',
+  'Search my requests…': 'Hanapin ang aking mga kahilingan…',
+  'Search case, party, or Lupon member…': 'Hanapin ang kaso, partido, o kasapi ng Lupon…',
+  'Search resident, facility, or purpose…': 'Hanapin ang residente, pasilidad, o layunin…',
+
+  // Requesting on behalf of a minor in the household.
+  'Who is this for?': 'Para kanino ito?',
+  Myself: 'Ako mismo',
+  '{name} — age {age}': '{name} — edad {age}',
 };

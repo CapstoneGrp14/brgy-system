@@ -4,12 +4,24 @@ import { api } from './client';
  * Browser push for urgent announcements.
  *
  * Every entry point is defensive: push is unsupported on some browsers, can be
- * blocked by the user, and needs a secure context (https, or localhost). None
- * of those are errors worth surfacing — the resident still gets the banner,
- * the in-app bell and the email.
+ * blocked by the user, and needs a secure context (https, or localhost). The
+ * resident always still gets the banner, the in-app bell and the email.
+ *
+ * But the *reason* it is unavailable is reported rather than swallowed. Hiding
+ * the control on an insecure origin looked identical to a broken feature: a
+ * phone opening the dev server over http://192.168.x.x has no
+ * `navigator.serviceWorker` at all, so there was nothing on screen to explain
+ * why notifications never arrived even with Android's own toggle switched on.
  */
 
-export type PushState = 'unsupported' | 'disabled' | 'default' | 'granted' | 'denied';
+export type PushState =
+  | 'unsupported'
+  /** Secure-context requirement unmet — plain http:// on anything but localhost. */
+  | 'insecure'
+  | 'disabled'
+  | 'default'
+  | 'granted'
+  | 'denied';
 
 /**
  * base64url (what VAPID uses) -> the bytes PushManager expects.
@@ -37,13 +49,26 @@ export function pushSupported(): boolean {
   );
 }
 
+/**
+ * Why push is unavailable, or null when it is available.
+ *
+ * Order matters: an insecure origin strips `serviceWorker` off `navigator`
+ * entirely, so it would otherwise be misreported as an unsupported browser.
+ */
+function unavailableReason(): 'insecure' | 'unsupported' | null {
+  if (typeof window === 'undefined') return 'unsupported';
+  if (!window.isSecureContext) return 'insecure';
+  return pushSupported() ? null : 'unsupported';
+}
+
 async function registration(): Promise<ServiceWorkerRegistration> {
   return navigator.serviceWorker.register('/sw.js');
 }
 
 /** Current state without prompting — drives the toggle's label. */
 export async function pushState(): Promise<PushState> {
-  if (!pushSupported()) return 'unsupported';
+  const blocked = unavailableReason();
+  if (blocked) return blocked;
   const { enabled } = (await api.get<{ publicKey: string; enabled: boolean }>('/push/key')).data;
   if (!enabled) return 'disabled';
   if (Notification.permission === 'denied') return 'denied';
@@ -55,7 +80,8 @@ export async function pushState(): Promise<PushState> {
 
 /** Prompt, subscribe, and register the endpoint. Returns the resulting state. */
 export async function enablePush(): Promise<PushState> {
-  if (!pushSupported()) return 'unsupported';
+  const blocked = unavailableReason();
+  if (blocked) return blocked;
   const { publicKey, enabled } = (
     await api.get<{ publicKey: string; enabled: boolean }>('/push/key')
   ).data;

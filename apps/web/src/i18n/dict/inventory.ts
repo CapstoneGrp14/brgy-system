@@ -80,4 +80,10 @@ export const inventory: Record<string, string> = {
   'Restock Item': 'I-restock ang Item',
   'Edit item': 'I-edit ang item',
   'Delete item': 'Burahin ang item',
+
+  // Filters and pagination added with the queue toolbars.
+  'All stock levels': 'Lahat ng antas ng stock',
+  'Auto-closed (low stock)': 'Awtomatikong sarado (mababa ang stock)',
+  'Open for requests': 'Bukas sa kahilingan',
+  'No inventory items yet.': 'Wala pang aytem sa imbentaryo.',
 };

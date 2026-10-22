@@ -47,4 +47,10 @@ export const student: Record<string, string> = {
   'Action failed.': 'Hindi naisagawa ang aksyon.',
   '✅ {title} → {status} — student notified.':
     '✅ {title} → {status} — naabisuhan ang estudyante.',
+
+  // Filters and pagination added with the queue toolbars.
+  'Uploaded & drop-off': 'Na-upload at drop-off',
+  'File uploaded': 'May na-upload na file',
+  'Drop-off only': 'Drop-off lamang',
+  'As head of the family you may file for the minors in your household — they do not need their own account.': 'Bilang puno ng pamilya, maaari kang maghain para sa mga menor de edad sa inyong sambahayan — hindi nila kailangan ng sariling account.',
 };

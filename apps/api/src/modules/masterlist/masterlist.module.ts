@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HouseholdAuthorityService } from './household-authority.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ResidentProfile } from '../users/resident-profile.entity';
 import { User } from '../users/user.entity';
@@ -13,6 +14,7 @@ import { MasterlistService } from './masterlist.service';
     TypeOrmModule.forFeature([CensusRecord, Household, ResidentProfile, CensusRecordHistory, User]),
   ],
   controllers: [MasterlistController],
-  providers: [MasterlistService],
+  providers: [MasterlistService, HouseholdAuthorityService],
+  exports: [HouseholdAuthorityService],
 })
 export class MasterlistModule {}

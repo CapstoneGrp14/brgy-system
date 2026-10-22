@@ -20,6 +20,13 @@ export function UploadPage() {
   const submit = useSubmitVerification();
   const [docTypeId, setDocTypeId] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  // A married resident's birth certificate carries her maiden surname, which
+  // the census no longer holds. Declaring it here attaches the marriage
+  // certificate as supporting evidence rather than offering it as an identity
+  // document of its own — it often carries no address, and is issued where the
+  // wedding took place rather than where the couple lives.
+  const [surnameChanged, setSurnameChanged] = useState(false);
+  const [marriageCert, setMarriageCert] = useState<File | null>(null);
   const [params] = useSearchParams();
   const onboarding = params.get('onboarding') === '1' && !verified;
 
@@ -38,10 +45,20 @@ export function UploadPage() {
       toast(t('Attach your document first.'));
       return;
     }
+    if (surnameChanged && !marriageCert) {
+      toast(t('Attach a photo of your marriage certificate.'));
+      return;
+    }
     try {
-      await submit.mutateAsync({ docTypeId, file });
+      await submit.mutateAsync({
+        docTypeId,
+        file,
+        surnameChangedByMarriage: surnameChanged,
+        supportingFile: marriageCert,
+      });
       toast(t('📎 Document submitted — running OCR…'));
       setFile(null);
+      setMarriageCert(null);
     } catch (err: any) {
       toast(err?.response?.data?.message ?? t('Upload failed — try again.'));
     }
@@ -92,6 +109,55 @@ export function UploadPage() {
               hint={t('Photo of your ID — JPG, PNG, or WebP · max 8 MB')}
               style={{ marginBottom: 16 }}
             />
+
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 9,
+                background: '#F7F9FC',
+                border: '1px solid #E4EAF3',
+                borderRadius: 9,
+                padding: '12px 14px',
+                marginBottom: marriageCert || surnameChanged ? 12 : 16,
+                cursor: busyState ? 'not-allowed' : 'pointer',
+                fontSize: 13,
+                color: '#33415E',
+                lineHeight: 1.55,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={surnameChanged}
+                disabled={busyState}
+                onChange={(e) => {
+                  setSurnameChanged(e.target.checked);
+                  if (!e.target.checked) setMarriageCert(null);
+                }}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                <strong style={{ fontWeight: 700 }}>
+                  {t('My surname changed when I married')}
+                </strong>
+                <br />
+                {t('Tick this if the name on the document above is your maiden name. Attach your marriage certificate and we will read both together, so the surname difference does not count against you.')}
+              </span>
+            </label>
+
+            {surnameChanged && (
+              <>
+                <label style={label}>{t('Marriage Certificate')}</label>
+                <FileDropzone
+                  file={marriageCert}
+                  onFile={setMarriageCert}
+                  disabled={busyState}
+                  accept="image/jpeg,image/png,image/webp"
+                  hint={t('Photo of your marriage certificate — JPG, PNG, or WebP · max 8 MB')}
+                  style={{ marginBottom: 16 }}
+                />
+              </>
+            )}
 
             {ocrRunning && (
               <div style={{ background: '#EAF1FC', color: '#21409A', borderRadius: 9, padding: '11px 14px', fontSize: 13.5, fontWeight: 600, marginBottom: 14, animation: 'pulse 1.4s ease infinite' }}>

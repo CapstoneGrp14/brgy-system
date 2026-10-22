@@ -66,6 +66,11 @@ export class CreateEquipmentRequestDto {
 }
 
 export class CreatePrintingRequestDto {
+  /** Census id of a minor in the filer's household; validated server-side. */
+  @IsOptional()
+  @IsUUID()
+  beneficiaryCensusRecordId?: string;
+
   @IsIn(['Printing (Black & White)', 'Printing (Colored)', 'Laminating'])
   serviceType: string;
 

@@ -60,4 +60,11 @@ export const health: Record<string, string> = {
   'Mark Released →': 'Markahan bilang Naibigay →',
   'Mark Returned ✓': 'Markahan bilang Naibalik ✓',
   'Mark Claimed →': 'Markahan bilang Nakuha →',
+
+  // Filters and pagination added with the queue toolbars.
+  'Past ARTA deadline': 'Lipas na sa ARTA deadline',
+  'Closed or rejected': 'Sarado o tinanggihan',
+  'Medicine & equipment': 'Gamot at kagamitan',
+  'Medicine only': 'Gamot lamang',
+  'Equipment only': 'Kagamitan lamang',
 };

@@ -96,4 +96,13 @@ export const bookings: Record<string, string> = {
   '🕐 {label} added.': '🕐 Naidagdag ang {label}.',
   'Could not add slot.': 'Hindi maidagdag ang slot.',
   '+ Add Slot': '+ Magdagdag ng Slot',
+
+  // Filters and pagination added with the queue toolbars.
+  'All pending': 'Lahat ng nakabinbin',
+  'Conflicts only': 'Mga sagutan lamang',
+  'No conflict': 'Walang sagutan',
+  'Confirmed & rejected': 'Kumpirmado at tinanggihan',
+  'Confirmed only': 'Kumpirmado lamang',
+  'Rejected only': 'Tinanggihan lamang',
+  'As head of the family you may book for the minors in your household — they do not need their own account.': 'Bilang puno ng pamilya, maaari kang magreserba para sa mga menor de edad sa inyong sambahayan — hindi nila kailangan ng sariling account.',
 };

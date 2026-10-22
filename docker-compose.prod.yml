@@ -56,6 +56,14 @@ x-app-env: &app-env
   AUTH_2FA_ENABLED: ${AUTH_2FA_ENABLED:-true}
 
   GOTENBERG_URL: http://gotenberg:3000
+
+  # Web Push for urgent announcements. Without these the service reports itself
+  # disabled, the opt-in control never renders, and sends are no-ops — which is
+  # exactly why push did nothing on the deployed site. Generate a pair with:
+  #   node -e "console.log(require('web-push').generateVAPIDKeys())"
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:brgy591dist6@gmail.com}
   OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:1b}
 

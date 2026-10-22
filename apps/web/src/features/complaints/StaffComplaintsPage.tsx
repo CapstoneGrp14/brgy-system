@@ -1,6 +1,6 @@
 import type { ComplaintDto } from '@brgy/shared';
 import { OrdinanceGuide } from './OrdinanceGuide';
-import { COMPLAINT_CATEGORIES, COMPLAINT_STATUS_META, ComplaintSource } from '@brgy/shared';
+import { COMPLAINT_CATEGORIES, COMPLAINT_STATUS_META, ComplaintSource, ComplaintStatus } from '@brgy/shared';
 import { useState } from 'react';
 import {
   useAdvanceComplaint,
@@ -15,6 +15,8 @@ import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { DetailRow, Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { fmtDateLong } from '../../components/ui/status';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
+import { useTableView } from '../../hooks/useTableView';
 import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
@@ -37,6 +39,27 @@ export function StaffComplaintsPage() {
   const [detailId, setDetailId] = useState<string | null>(null);
   // Resolve from live query data so status changes reflect while the modal is open.
   const detail: ComplaintDto | null = (data?.items ?? []).find((c) => c.id === detailId) ?? null;
+
+  // Katarungang Pambarangay runs on a clock, so "past the mediation deadline"
+  // is the filter that carries legal weight — it is what a Lupon secretary is
+  // accountable for, and the one view the old unfiltered table could not give.
+  const [status, setStatus] = useState('all');
+  const [filing, setFiling] = useState('all');
+  const [timeline, setTimeline] = useState('all');
+  const view = useTableView(
+    data?.items,
+    (c) =>
+      `${c.caseTitle} ${c.category} ${c.respondentName} ${c.complainantName ?? ''} ${c.luponAssignee ?? ''}`,
+    {
+      resetKey: `${status}|${filing}|${timeline}`,
+      filters: [
+        status !== 'all' && ((c) => c.status === status),
+        filing !== 'all' && ((c) => c.source === filing),
+        timeline === 'overdue' && ((c) => c.overdue),
+        timeline === 'open' && ((c) => c.status !== ComplaintStatus.RESOLVED),
+      ],
+    },
+  );
 
   const submitBlotter = async () => {
     if (!blotter.caseTitle.trim() || blotter.description.trim().length < 10) {
@@ -121,7 +144,50 @@ export function StaffComplaintsPage() {
         </div>
       )}
 
-      <div style={{ overflowX: 'auto', marginTop: 8 }}>
+      <TableToolbar
+        view={view}
+        placeholder={t('Search case, party, or Lupon member…')}
+        searchWidth={240}
+        style={{ marginTop: 8 }}
+      >
+        <Select
+          value={status}
+          onChange={setStatus}
+          compact
+          options={[
+            { value: 'all', labelText: t('All statuses') },
+            ...Object.entries(COMPLAINT_STATUS_META).map(([value, meta]) => ({
+              value,
+              labelText: t(meta.labelText),
+            })),
+          ]}
+          style={{ width: 190 }}
+        />
+        <Select
+          value={timeline}
+          onChange={setTimeline}
+          compact
+          options={[
+            { value: 'all', labelText: t('Any timeline') },
+            { value: 'open', labelText: t('Unresolved') },
+            { value: 'overdue', labelText: t('Past mediation deadline') },
+          ]}
+          style={{ width: 200 }}
+        />
+        <Select
+          value={filing}
+          onChange={setFiling}
+          compact
+          options={[
+            { value: 'all', labelText: t('All filing types') },
+            { value: ComplaintSource.RESIDENT_FORM, labelText: t('Resident-filed') },
+            { value: ComplaintSource.MANUAL_BLOTTER, labelText: t('Staff blotter') },
+          ]}
+          style={{ width: 170 }}
+        />
+      </TableToolbar>
+
+      <div style={{ overflowX: 'auto' }}>
         <table style={tableFixed(900)}>
           <colgroup>
             {cols('24%', '14%', '15%', '16%', '15%', '16%').map((c) => (
@@ -139,10 +205,12 @@ export function StaffComplaintsPage() {
             </tr>
           </thead>
           <tbody>
-            {(data?.items ?? []).length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>{t('No cases on record.')}</td></tr>
+            {view.rows.length === 0 && (
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={6}>
+                {view.total === 0 ? t('No cases on record.') : t('No cases match this search or filter.')}
+              </td></tr>
             )}
-            {(data?.items ?? []).map((c) => {
+            {view.rows.map((c) => {
               const meta = COMPLAINT_STATUS_META[c.status];
               const actions = actionsMap?.[c.status] ?? [];
               const timelineChip = c.mediationDay === null
@@ -215,6 +283,8 @@ export function StaffComplaintsPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination view={view} />
 
       {detail && (
         <Modal title={detail.caseTitle} onClose={() => setDetailId(null)}>

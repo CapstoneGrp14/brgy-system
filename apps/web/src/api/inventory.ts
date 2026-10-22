@@ -97,11 +97,12 @@ export function useCreateEquipmentRequest() {
 export function useCreatePrintingRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { serviceType: string; copies: number; file: File | null }) => {
+    mutationFn: async (input: { serviceType: string; copies: number; file: File | null; beneficiaryCensusRecordId?: string }) => {
       const form = new FormData();
       form.append('serviceType', input.serviceType);
       form.append('copies', String(input.copies));
       if (input.file) form.append('file', input.file);
+      if (input.beneficiaryCensusRecordId) form.append('beneficiaryCensusRecordId', input.beneficiaryCensusRecordId);
       return (await api.post<RequestDto>('/requests/printing', form)).data;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['requests'] }),

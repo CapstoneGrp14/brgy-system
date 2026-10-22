@@ -17,6 +17,21 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      fs: {
+        // The dev server runs with --host, so it is reachable from the whole
+        // network. By default Vite will serve any file under the workspace
+        // root, which here means the API source and deploy configuration were
+        // readable over /@fs/. Restrict it to what the browser legitimately
+        // needs: this app, the shared package, and the installed dependencies.
+        strict: true,
+        allow: [
+          fileURLToPath(new URL('.', import.meta.url)),
+          fileURLToPath(new URL('../../packages/shared', import.meta.url)),
+          fileURLToPath(new URL('../../node_modules', import.meta.url)),
+        ],
+        // Belt and braces for anything that slips inside an allowed path.
+        deny: ['**/.env', '**/.env.*', '**/*.pem', '**/*.key', '**/*.crt'],
+      },
       proxy: {
         '/api': { target: apiProxy, changeOrigin: true },
         '/socket.io': { target: apiProxy, changeOrigin: true, ws: true },

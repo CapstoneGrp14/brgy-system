@@ -14,13 +14,13 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsBoolean, IsNotEmpty, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { Repository } from 'typeorm';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
 import { RequiresModule } from '../../common/module-access';
@@ -37,6 +37,15 @@ import { VerificationSubmission } from './verification-submission.entity';
 class SubmitDto {
   @IsUUID()
   docTypeId: string;
+
+  /**
+   * Multipart carries everything as text, so the checkbox arrives as the
+   * string "true" rather than a boolean — hence the string union instead of
+   * @IsBoolean, which would reject it.
+   */
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  surnameChangedByMarriage?: string;
 }
 
 /** The decision note is staff-authored free text that lands in an HTML email,
@@ -141,12 +150,24 @@ export class VerificationController {
 
   @Post('submit')
   @Roles(Role.RESIDENT)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 8 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'file', maxCount: 1 },
+        { name: 'supportingFile', maxCount: 1 },
+      ],
+      { limits: { fileSize: 8 * 1024 * 1024 } },
+    ),
+  )
   async submit(
-    @UploadedFile() file: Express.Multer.File | undefined,
+    @UploadedFiles()
+    files: { file?: Express.Multer.File[]; supportingFile?: Express.Multer.File[] } | undefined,
     @Body() dto: SubmitDto,
     @CurrentUser() user: RequestUser,
   ) {
+    const file = files?.file?.[0];
+    const supportingFile = files?.supportingFile?.[0];
+    const surnameChanged = dto.surnameChangedByMarriage === 'true';
     if (!file) throw new BadRequestException('Attach a photo of your document (JPG, PNG, or WebP).');
     // Photos only. A PDF cannot be OCR'd by the cross-check, so it used to
     // land in a manual-review queue and the resident waited on a person to
@@ -157,6 +178,22 @@ export class VerificationController {
     // opened by staff during review, so a renamed executable must not reach them.
     const sig = checkSignature(file.buffer, ['jpeg', 'png', 'webp'], file.mimetype);
     if (!sig.ok) throw new BadRequestException(sig.reason);
+    // The declaration is what licenses a surname mismatch in the cross-check,
+    // so it does not stand on the resident's word alone — the certificate has
+    // to be there, and it is checked by content like the primary document.
+    if (surnameChanged) {
+      if (!supportingFile) {
+        throw new BadRequestException(
+          'Attach a photo of your marriage certificate to evidence the surname change.',
+        );
+      }
+      const supportingSig = checkSignature(
+        supportingFile.buffer,
+        ['jpeg', 'png', 'webp'],
+        supportingFile.mimetype,
+      );
+      if (!supportingSig.ok) throw new BadRequestException(supportingSig.reason);
+    }
     const docType = await this.docTypes.findOne({ where: { id: dto.docTypeId, isActive: true } });
     if (!docType) throw new BadRequestException('Pick a valid document type.');
 
@@ -182,8 +219,38 @@ export class VerificationController {
       }),
     );
 
+    // Stored only when declared: an orphan certificate with no declaration
+    // behind it would sit in the bucket evidencing nothing.
+    let supportingUploadId: string | null = null;
+    if (surnameChanged && supportingFile) {
+      const supportingKey = `ids/${user.id}/${randomUUID()}`;
+      await this.storage.putObject(
+        this.storage.uploadsBucket,
+        supportingKey,
+        supportingFile.buffer,
+        supportingFile.mimetype,
+      );
+      const supportingUpload = await this.uploads.save(
+        this.uploads.create({
+          bucket: this.storage.uploadsBucket,
+          objectKey: supportingKey,
+          mime: supportingFile.mimetype,
+          size: supportingFile.size,
+          originalName: supportingFile.originalname,
+          uploaderId: user.id,
+        }),
+      );
+      supportingUploadId = supportingUpload.id;
+    }
+
     const submission = await this.submissions.save(
-      this.submissions.create({ userId: user.id, docType: docType.labelText, uploadId: upload.id }),
+      this.submissions.create({
+        userId: user.id,
+        docType: docType.labelText,
+        uploadId: upload.id,
+        surnameChangedByMarriage: surnameChanged,
+        supportingUploadId,
+      }),
     );
 
     await this.queue.publish(QUEUES.ocr, { submissionId: submission.id });
@@ -192,7 +259,9 @@ export class VerificationController {
       actorLabel: `${user.fullName} (Resident)`,
       actorId: user.id,
       action: 'Submitted Verification Document',
-      target: docType.labelText,
+      target: surnameChanged
+        ? `${docType.labelText} + Marriage Certificate (surname change declared)`
+        : docType.labelText,
     });
     return this.toMine(submission);
   }
@@ -224,7 +293,7 @@ export class VerificationController {
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   async staffQueue(): Promise<VerificationQueueResponse> {
     const rows = await this.submissions.find({
-      relations: { user: true, upload: true },
+      relations: { user: true, upload: true, supportingUpload: true },
       order: { createdAt: 'DESC' },
       take: 30,
     });
@@ -235,6 +304,11 @@ export class VerificationController {
         docType: s.docType,
         fileName: s.upload.originalName,
         fileUrl: await this.storage.presignedGet(s.upload.bucket, s.upload.objectKey, 3600),
+        surnameChangedByMarriage: s.surnameChangedByMarriage,
+        supportingFileName: s.supportingUpload?.originalName ?? null,
+        supportingFileUrl: s.supportingUpload
+          ? await this.storage.presignedGet(s.supportingUpload.bucket, s.supportingUpload.objectKey, 3600)
+          : null,
         ocrVerdict: s.ocrVerdict,
         matchScore: s.matchScore,
         // Null for PDFs (never OCR'd) and for rows predating per-field scoring,

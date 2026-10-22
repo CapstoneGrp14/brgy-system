@@ -1,21 +1,17 @@
 import { Role } from '@brgy/shared';
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import {
-  IsBoolean,
-  IsIn,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Matches,
-  MaxLength,
-} from 'class-validator';
+import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { CurrentUser, RequestUser, Roles } from '../../common/decorators';
 import { RequiresModule } from '../../common/module-access';
 import { BookingsService } from './bookings.service';
 
 class CreateBookingDto {
+  /** Census id of a minor in the filer's household; validated server-side. */
+  @IsOptional()
+  @IsUUID()
+  beneficiaryCensusRecordId?: string;
+
   @IsUUID()
   facilityId: string;
 

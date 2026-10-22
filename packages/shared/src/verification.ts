@@ -88,6 +88,14 @@ export interface VerificationQueueRow {
   fileName: string;
   /** Presigned preview URL (1 hour). */
   fileUrl: string;
+  /**
+   * The resident declared a surname change by marriage, so the primary
+   * document's maiden surname differing from the census is expected.
+   */
+  surnameChangedByMarriage: boolean;
+  /** Marriage certificate backing that declaration, if one was attached. */
+  supportingFileName: string | null;
+  supportingFileUrl: string | null;
   ocrVerdict: OcrVerdict;
   matchScore: number | null;
   status: SubmissionStatus;

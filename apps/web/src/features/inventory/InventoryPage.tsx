@@ -4,6 +4,8 @@ import { useAddItem, useDeleteItem, useInventory, useRestock, useUpdateItem } fr
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { btnBusy, btnPrimary, card, cols, input, label, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { Select } from '../../components/ui/Select';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
+import { useTableView } from '../../hooks/useTableView';
 import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useAuthStore } from '../../stores/auth';
@@ -128,6 +130,25 @@ export function InventoryPage() {
 
   const lowCount = (items ?? []).filter((i) => !i.isOpen).length;
 
+  // Restocking is driven by the auto-closed list, so that is its own filter —
+  // a storekeeper opens this page to answer "what do I need to buy?" before
+  // anything else. Category narrows the same question per store room.
+  const [category, setCategory] = useState('all');
+  const [stock, setStock] = useState('all');
+  const view = useTableView(
+    items,
+    (i) => `${i.name} ${t(CATEGORY_LABEL[i.category])} ${i.unit}`,
+    {
+      pageSize: 12,
+      resetKey: `${category}|${stock}`,
+      filters: [
+        category !== 'all' && ((i) => i.category === category),
+        stock === 'low' && ((i) => !i.isOpen),
+        stock === 'open' && ((i) => i.isOpen),
+      ],
+    },
+  );
+
   return (
     <div style={{ ...card, padding: '22px 26px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -197,6 +218,33 @@ export function InventoryPage() {
         </div>
       )}
 
+      <TableToolbar view={view} placeholder={t('Search item name…')}>
+        <Select
+          value={category}
+          onChange={setCategory}
+          compact
+          options={[
+            { value: 'all', labelText: t('All categories') },
+            // The add-item form's labels spell out where each category surfaces
+            // ("Medicine — Health & Medicine (request)"); far too long for a
+            // filter chip, so the short names are used here.
+            ...Object.entries(CATEGORY_LABEL).map(([value, labelText]) => ({ value, labelText: t(labelText) })),
+          ]}
+          style={{ width: 160 }}
+        />
+        <Select
+          value={stock}
+          onChange={setStock}
+          compact
+          options={[
+            { value: 'all', labelText: t('All stock levels') },
+            { value: 'low', labelText: t('Auto-closed (low stock)') },
+            { value: 'open', labelText: t('Open for requests') },
+          ]}
+          style={{ width: 200 }}
+        />
+      </TableToolbar>
+
       <div style={{ overflowX: 'auto' }}>
         <table style={tableFixed(760)}>
           <colgroup>
@@ -214,7 +262,12 @@ export function InventoryPage() {
             </tr>
           </thead>
           <tbody>
-            {(items ?? []).map((i) => (
+            {view.rows.length === 0 && (
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={isAdmin ? 5 : 4}>
+                {view.total === 0 ? t('No inventory items yet.') : t('No items match this search or filter.')}
+              </td></tr>
+            )}
+            {view.rows.map((i) => (
               <tr key={i.id} style={!i.isOpen ? { background: '#FEF5F4', boxShadow: 'inset 3px 0 0 #D64541' } : {}}>
                 <td style={{ ...td, fontWeight: 700 }}>
                   {i.name}
@@ -279,6 +332,8 @@ export function InventoryPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination view={view} />
     </div>
   );
 }

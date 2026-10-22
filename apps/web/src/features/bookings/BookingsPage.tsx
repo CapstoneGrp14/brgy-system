@@ -8,6 +8,7 @@ import {
   useFacilities,
   useMyBookings,
 } from '../../api/bookings';
+import { useDependants } from '../../api/requests';
 import { btnBusy, btnPrimary, card, input, label, pill, successText } from '../../components/ui/kit';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { Select } from '../../components/ui/Select';
@@ -29,11 +30,13 @@ export function BookingsPage() {
   const { data: slots } = useBookingSlots();
   const { data: myBookings } = useMyBookings();
   const create = useCreateBooking();
+  const { data: dependants } = useDependants();
 
   const [facilityId, setFacilityId] = useState('');
   const [date, setDate] = useState('');
   const [timeSlot, setTimeSlot] = useState<string>('');
   const [purpose, setPurpose] = useState('');
+  const [beneficiary, setBeneficiary] = useState('');
   const [conflict, setConflict] = useState<BookingConflict | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -58,6 +61,7 @@ export function BookingsPage() {
         timeSlot: slot,
         purpose: purpose || undefined,
         fromSuggestion,
+        ...(beneficiary ? { beneficiaryCensusRecordId: beneficiary } : {}),
       });
       setConflict(null);
       setSuccessMsg(
@@ -121,6 +125,30 @@ export function BookingsPage() {
             />
           </div>
         </div>
+
+        {/* Only heads of family receive a non-empty list, so this control is
+            absent for everyone else rather than shown disabled. A parent
+            reserving the court for a child's event is the ordinary case. */}
+        {(dependants?.length ?? 0) > 0 && (
+          <>
+            <label style={label}>{t('Who is this for?')}</label>
+            <Select
+              value={beneficiary}
+              onChange={(v) => { setBeneficiary(v); setConflict(null); setSuccessMsg(''); }}
+              options={[
+                { value: '', labelText: t('Myself') },
+                ...(dependants ?? []).map((d) => ({
+                  value: d.censusRecordId,
+                  labelText: t('{name} — age {age}', { name: d.fullName, age: d.age }),
+                })),
+              ]}
+              style={{ marginBottom: 6 }}
+            />
+            <p style={{ fontSize: 12.5, color: '#64748B', margin: '4px 0 12px', lineHeight: 1.55 }}>
+              {t('As head of the family you may book for the minors in your household — they do not need their own account.')}
+            </p>
+          </>
+        )}
 
         <label style={label}>{t('Purpose (optional)')}</label>
         <input

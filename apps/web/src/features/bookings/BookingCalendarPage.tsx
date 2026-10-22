@@ -1,8 +1,12 @@
 import { BookingStatus } from '@brgy/shared';
+import { useState } from 'react';
 import { useBookingsQueue, useDecideBooking } from '../../api/bookings';
 import { card, pill } from '../../components/ui/kit';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
+import { Select } from '../../components/ui/Select';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useTableView } from '../../hooks/useTableView';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
@@ -18,6 +22,34 @@ export function BookingCalendarPage() {
 
   const pending = (bookings ?? []).filter((b) => b.status === BookingStatus.PENDING);
   const decided = (bookings ?? []).filter((b) => b.status !== BookingStatus.PENDING);
+
+  // Conflicts are the queue's real work — they need a decision rather than a
+  // click-through — so they get their own filter alongside the name search.
+  const [conflictOnly, setConflictOnly] = useState('all');
+  const pendingView = useTableView(
+    pending,
+    (b) => `${b.requestedBy ?? ''} ${b.facilityName} ${b.purpose ?? ''} ${b.timeSlot} ${b.date}`,
+    {
+      pageSize: 6,
+      resetKey: conflictOnly,
+      filters: [
+        conflictOnly === 'conflict' && ((b) => !!b.conflictTitle),
+        conflictOnly === 'clear' && ((b) => !b.conflictTitle),
+      ],
+    },
+  );
+
+  // Previously hard-capped at ten rows, which quietly hid the rest of the
+  // history. Paging shows the same ten at a time and admits there are more.
+  const [outcome, setOutcome] = useState('all');
+  const decidedView = useTableView(
+    decided,
+    (b) => `${b.requestedBy ?? ''} ${b.facilityName} ${b.purpose ?? ''} ${b.decidedBy ?? ''} ${b.date}`,
+    {
+      resetKey: outcome,
+      filters: [outcome !== 'all' && ((b) => b.status === outcome)],
+    },
+  );
 
   const onDecide = async (id: string, approve: boolean, useSuggestion: boolean, who: string, slot?: string | null) => {
     if (!approve) {
@@ -60,14 +92,36 @@ export function BookingCalendarPage() {
           )}
         </p>
 
+        {pending.length > 0 && (
+          <TableToolbar view={pendingView} placeholder={t('Search resident, facility, or purpose…')}>
+            <Select
+              value={conflictOnly}
+              onChange={setConflictOnly}
+              compact
+              options={[
+                { value: 'all', labelText: t('All pending') },
+                { value: 'conflict', labelText: t('Conflicts only') },
+                { value: 'clear', labelText: t('No conflict') },
+              ]}
+              style={{ width: 170 }}
+            />
+          </TableToolbar>
+        )}
+
         {pending.length === 0 && (
           <div style={{ background: '#E4F5EB', border: '1px solid #BFE6CE', borderRadius: 10, padding: '13px 16px', fontSize: 13.5, fontWeight: 700, color: '#1F8B4C' }}>
             {t('✅ No pending bookings — the calendar is clear.')}
           </div>
         )}
 
+        {pending.length > 0 && pendingView.rows.length === 0 && (
+          <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>
+            {t('No pending bookings match this search or filter.')}
+          </p>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
-          {pending.map((b) => (
+          {pendingView.rows.map((b) => (
             <div key={b.id} style={{ border: '1px solid #E3E8F0', borderRadius: 12, padding: '16px 18px' }}>
               <div style={{ font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>
                 {b.facilityName.split(' (')[0]}
@@ -123,12 +177,37 @@ export function BookingCalendarPage() {
             </div>
           ))}
         </div>
+
+        <Pagination view={pendingView} />
       </div>
 
       <div style={{ ...card, padding: '22px 26px' }}>
         <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Recent Decisions')}</h3>
-        {decided.length === 0 && <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>{t('No decided bookings yet.')}</p>}
-        {decided.slice(0, 10).map((b) => (
+
+        {decided.length > 0 && (
+          <TableToolbar view={decidedView} placeholder={t('Search resident or facility…')}>
+            <Select
+              value={outcome}
+              onChange={setOutcome}
+              compact
+              options={[
+                { value: 'all', labelText: t('Confirmed & rejected') },
+                { value: BookingStatus.CONFIRMED, labelText: t('Confirmed only') },
+                { value: BookingStatus.REJECTED, labelText: t('Rejected only') },
+              ]}
+              style={{ width: 190 }}
+            />
+          </TableToolbar>
+        )}
+
+        {decidedView.rows.length === 0 && (
+          <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>
+            {decidedView.total === 0
+              ? t('No decided bookings yet.')
+              : t('No decisions match this search or filter.')}
+          </p>
+        )}
+        {decidedView.rows.map((b) => (
           <div key={b.id} style={{ padding: '10px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 13.5, color: '#2E3A52' }}>
               <strong>{b.facilityName.split(' (')[0]}</strong>
@@ -140,6 +219,8 @@ export function BookingCalendarPage() {
             </span>
           </div>
         ))}
+
+        <Pagination view={decidedView} />
       </div>
     </div>
   );

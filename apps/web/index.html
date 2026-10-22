@@ -12,6 +12,16 @@
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
+      <!-- Installable on Android so urgent advisories arrive as real
+         notifications rather than only inside a browser tab. -->
+    <!-- Installable so Android/iOS can deliver push to a home-screen launch.
+         No "maskable" icon is declared on purpose: the logo has no safe-area
+         padding, and Android crops a maskable icon into an adaptive shape,
+         which would clip the seal. Without the claim it is letterboxed on a
+         background instead. Add a padded 512x512 variant to reinstate it. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1E3A5F" />
+    <link rel="apple-touch-icon" href="/brgy591-logo.png" />
   </head>
   <body>
     <div id="root"></div>

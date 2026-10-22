@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { useAdvanceRequest } from '../../api/requests';
 import { usePrintingQueue } from '../../api/inventory';
 import { openPrintWindow, printStudentFile } from '../../api/print';
 import { card, cols, pill, tableFixed, td, th } from '../../components/ui/kit';
+import { Select } from '../../components/ui/Select';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
 import { STATUS_PILL, fmtDateLong } from '../../components/ui/status';
+import { useTableView } from '../../hooks/useTableView';
 import { useT } from '../../i18n';
 import { useUiStore } from '../../stores/ui';
 
@@ -11,6 +15,25 @@ export function StaffStudentQueuePage() {
   const advance = useAdvanceRequest();
   const toast = useUiStore((s) => s.toast);
   const t = useT();
+
+  // The queue is worked front-to-back, so the filter that earns its place is
+  // "what is still mine to do" — and the drop-off split matters because those
+  // jobs have no file to open and are handled at the counter instead.
+  const [stage, setStage] = useState('all');
+  const [source, setSource] = useState('all');
+  const view = useTableView(
+    rows,
+    (r) => `${r.title} ${r.residentName} ${r.fileName ?? ''}`,
+    {
+      resetKey: `${stage}|${source}`,
+      filters: [
+        stage === 'open' && ((r) => !!r.actionText),
+        stage === 'done' && ((r) => !r.actionText),
+        source === 'uploaded' && ((r) => !!r.fileUrl),
+        source === 'dropoff' && ((r) => !r.fileUrl),
+      ],
+    },
+  );
 
   const onAction = async (id: string, title: string) => {
     try {
@@ -27,6 +50,31 @@ export function StaffStudentQueuePage() {
       <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 14px' }}>
         {t('Free Printing & Laminating Queue — manage requests submitted by resident students.')}
       </p>
+
+      <TableToolbar view={view} placeholder={t('Search student or file…')}>
+        <Select
+          value={stage}
+          onChange={setStage}
+          compact
+          options={[
+            { value: 'all', labelText: t('All requests') },
+            { value: 'open', labelText: t('Needs action') },
+            { value: 'done', labelText: t('Done') },
+          ]}
+          style={{ width: 160 }}
+        />
+        <Select
+          value={source}
+          onChange={setSource}
+          compact
+          options={[
+            { value: 'all', labelText: t('Uploaded & drop-off') },
+            { value: 'uploaded', labelText: t('File uploaded') },
+            { value: 'dropoff', labelText: t('Drop-off only') },
+          ]}
+          style={{ width: 190 }}
+        />
+      </TableToolbar>
 
       <div style={{ overflowX: 'auto' }}>
         <table style={tableFixed(760)}>
@@ -45,10 +93,12 @@ export function StaffStudentQueuePage() {
             </tr>
           </thead>
           <tbody>
-            {(rows ?? []).length === 0 && (
-              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={5}>{t('No student requests yet.')}</td></tr>
+            {view.rows.length === 0 && (
+              <tr><td style={{ ...td, color: '#8A97AB' }} colSpan={5}>
+                {view.total === 0 ? t('No student requests yet.') : t('No requests match this search or filter.')}
+              </td></tr>
             )}
-            {(rows ?? []).map((r) => (
+            {view.rows.map((r) => (
               <tr key={r.id}>
                 <td style={{ ...td, fontWeight: 700 }}>
                   🖨️ {r.title}
@@ -116,6 +166,8 @@ export function StaffStudentQueuePage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination view={view} />
     </div>
   );
 }

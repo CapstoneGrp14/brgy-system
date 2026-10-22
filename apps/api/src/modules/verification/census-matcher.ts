@@ -82,10 +82,25 @@ function birthdateVariants(iso: string): string[] {
 /** Any run of 6+ digits/letters that looks like a serial, e.g. N01-23-456789. */
 const ID_NUMBER_RE = /\b(?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{5,}\b/;
 
+export interface MatchOptions {
+  /**
+   * A marriage certificate was submitted alongside the primary document, so
+   * exactly one differing name part — the surname — is expected rather than
+   * suspicious. Without this a married woman's birth certificate can never
+   * reach MATCH, because NAME is a required field and her maiden surname is
+   * not the surname the census holds.
+   *
+   * Deliberately narrow: all but one part must still match, so it licenses a
+   * surname change and not a different person.
+   */
+  allowSurnameChange?: boolean;
+}
+
 export function matchAgainstCensus(
   ocrText: string,
   reference: CensusReference,
   fields: OcrFieldSpec[] = DEFAULT_OCR_FIELDS,
+  options: MatchOptions = {},
 ): MatchResult {
   const flat = normalize(ocrText);
   const words = new Set(flat.split(' ').filter((w) => w.length > 1));
@@ -110,15 +125,25 @@ export function matchAgainstCensus(
       case 'NAME': {
         expected = reference.fullName;
         const c = coverage(reference.fullName, 1);
+        const parts = normalize(reference.fullName).split(' ').filter((x) => x.length > 1);
         // Every name part must appear — a partial name is not an identity match.
         detected = c === 1;
+        // Unless a marriage certificate accounts for the one that does not:
+        // then all-but-one matching is the expected shape, and the certificate
+        // is the evidence that the two surnames are the same person.
+        if (!detected && options.allowSurnameChange && c !== null && parts.length >= 2) {
+          const matchedParts = Math.round(c * parts.length);
+          if (matchedParts >= parts.length - 1) {
+            detected = true;
+            found = `${matchedParts} of ${parts.length} name parts matched — surname change evidenced by marriage certificate`;
+          }
+        }
         // But say *how* partial it was. A married woman's birth certificate
         // carries her maiden surname, so given names match and the surname does
         // not; "2 of 3 name parts matched" tells staff to ask for a marriage
         // certificate, where a bare empty checkbox tells them nothing.
         if (!detected && c !== null && c > 0) {
-          const tokens = normalize(reference.fullName).split(' ').filter((x) => x.length > 1);
-          found = `${Math.round(c * tokens.length)} of ${tokens.length} name parts matched`;
+          found = `${Math.round(c * parts.length)} of ${parts.length} name parts matched`;
         }
         break;
       }

@@ -19,6 +19,7 @@ import { RequestUser } from '../../common/decorators';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QUEUES, QueueService } from '../queue/queue.service';
+import { HouseholdAuthorityService } from '../masterlist/household-authority.service';
 import { ResidentProfile } from '../users/resident-profile.entity';
 import { BookingSlot } from './booking-slot.entity';
 import { Booking } from './booking.entity';
@@ -30,6 +31,7 @@ const fmtDate = (d: string) =>
 @Injectable()
 export class BookingsService {
   constructor(
+    private readonly household: HouseholdAuthorityService,
     @InjectRepository(Booking) private readonly bookings: Repository<Booking>,
     @InjectRepository(Facility) private readonly facilities: Repository<Facility>,
     @InjectRepository(BookingSlot) private readonly slots: Repository<BookingSlot>,
@@ -108,7 +110,14 @@ export class BookingsService {
 
   async create(
     user: RequestUser,
-    input: { facilityId: string; date: string; timeSlot: string; purpose?: string; fromSuggestion?: boolean },
+    input: {
+      facilityId: string;
+      date: string;
+      timeSlot: string;
+      purpose?: string;
+      fromSuggestion?: boolean;
+      beneficiaryCensusRecordId?: string;
+    },
   ): Promise<BookingDto> {
     const profile = await this.profiles.findOne({ where: { userId: user.id } });
     if (profile?.verificationStatus !== VerificationStatus.VERIFIED) {
@@ -116,6 +125,12 @@ export class BookingsService {
         'Services are locked until verification — upload your supporting documents to get verified.',
       );
     }
+
+    // A parent reserving the court for a child's event is the ordinary case.
+    // Checked against the household registry, never taken from the request.
+    const beneficiaryName = input.beneficiaryCensusRecordId
+      ? await this.household.resolveBeneficiary(user.id, input.beneficiaryCensusRecordId)
+      : null;
 
     const facility = await this.facilities.findOne({ where: { id: input.facilityId } });
     if (!facility || !facility.isActive) throw new NotFoundException('Facility not available.');
@@ -141,9 +156,12 @@ export class BookingsService {
     // confirmation (user decision: no auto-confirm bypassing staff oversight).
     const booking = await this.bookings.save(
       this.bookings.create({
+        beneficiaryCensusRecordId: input.beneficiaryCensusRecordId ?? null,
         facilityId: facility.id,
         userId: user.id,
-        purpose: input.purpose?.trim() || null,
+        purpose: beneficiaryName
+          ? `For ${beneficiaryName}${input.purpose?.trim() ? ` — ${input.purpose.trim()}` : ''}`
+          : input.purpose?.trim() || null,
         date: input.date,
         timeSlot: input.timeSlot,
         status: BookingStatus.PENDING,

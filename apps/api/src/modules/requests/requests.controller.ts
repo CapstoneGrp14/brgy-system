@@ -27,6 +27,7 @@ import {
 
 import { checkSignature } from '../../common/file-signature';
 import { RequiresModule } from '../../common/module-access';
+import { HouseholdAuthorityService } from '../masterlist/household-authority.service';
 import { RequestsService } from './requests.service';
 
 /**
@@ -40,13 +41,16 @@ const PRINT_KINDS = ['pdf', 'docx'] as const;
 
 @Controller('requests')
 export class RequestsController {
-  constructor(private readonly requests: RequestsService) {}
+  constructor(
+    private readonly requests: RequestsService,
+    private readonly household: HouseholdAuthorityService,
+  ) {}
 
   /** Minors in the caller's household they may file for; empty unless head. */
   @Get('dependants')
   @Roles(Role.RESIDENT)
   dependants(@CurrentUser() user: RequestUser) {
-    return this.requests.dependantsFor(user.id);
+    return this.household.dependantsFor(user.id);
   }
 
   @Post('documents')

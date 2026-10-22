@@ -9,7 +9,9 @@ import { useMyRequests } from '../../api/requests';
 import { btnBusy, btnPrimary, card, label, pill, successText } from '../../components/ui/kit';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { Select } from '../../components/ui/Select';
+import { Pagination, TableToolbar } from '../../components/ui/TableToolbar';
 import { fmtDateLong, pillForRequest } from '../../components/ui/status';
+import { useTableView } from '../../hooks/useTableView';
 import { useT } from '../../i18n';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useUiStore } from '../../stores/ui';
@@ -67,6 +69,19 @@ export function HealthPage() {
   const myHealth = (myRequests ?? []).filter(
     (r) => r.type === RequestType.MEDICINE || r.type === RequestType.EQUIPMENT,
   );
+  // A resident on maintenance medication files the same request monthly, so
+  // this list grows long for exactly the people who most need to find one
+  // entry in it ("did my losartan come through?").
+  const [kind, setKind] = useState('all');
+  const historyView = useTableView(
+    myHealth,
+    (r) => `${r.title} ${r.purpose ?? ''} ${t(pillForRequest(r).labelText)}`,
+    {
+      pageSize: 8,
+      resetKey: kind,
+      filters: [kind !== 'all' && ((r) => r.type === kind)],
+    },
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -121,8 +136,32 @@ export function HealthPage() {
 
       <div style={{ ...card, padding: '24px 26px' }}>
         <h3 style={{ margin: '0 0 12px', font: '700 15px Poppins, sans-serif', color: '#1E3A5F' }}>{t('My Health Requests')}</h3>
-        {myHealth.length === 0 && <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>{t('No health requests yet.')}</p>}
-        {myHealth.map((r) => (
+
+        {/* The controls only make sense once there is something to narrow. */}
+        {myHealth.length > 0 && (
+          <TableToolbar view={historyView} placeholder={t('Search my requests…')} searchWidth={200}>
+            <Select
+              value={kind}
+              onChange={setKind}
+              compact
+              options={[
+                { value: 'all', labelText: t('Medicine & equipment') },
+                { value: RequestType.MEDICINE, labelText: t('Medicine only') },
+                { value: RequestType.EQUIPMENT, labelText: t('Equipment only') },
+              ]}
+              style={{ width: 190 }}
+            />
+          </TableToolbar>
+        )}
+
+        {historyView.rows.length === 0 && (
+          <p style={{ fontSize: 13.5, color: '#8A97AB', margin: 0 }}>
+            {historyView.total === 0
+              ? t('No health requests yet.')
+              : t('No requests match this search or filter.')}
+          </p>
+        )}
+        {historyView.rows.map((r) => (
           <div key={r.id} style={{ padding: '10px 0', borderBottom: '1px solid #F0F3F8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 13.5, color: '#2E3A52' }}>
               <strong>{r.type === RequestType.MEDICINE ? '💊' : '🩺'} {r.title}</strong>
@@ -131,6 +170,8 @@ export function HealthPage() {
             <span style={pill(pillForRequest(r).kind)}>{t(pillForRequest(r).labelText)}</span>
           </div>
         ))}
+
+        <Pagination view={historyView} />
       </div>
     </div>
   );

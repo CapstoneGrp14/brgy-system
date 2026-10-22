@@ -1,7 +1,7 @@
 import { PRINTING_SERVICES, RequestType } from '@brgy/shared';
 import { useState } from 'react';
 import { useCreatePrintingRequest } from '../../api/inventory';
-import { useMyRequests } from '../../api/requests';
+import { useDependants, useMyRequests } from '../../api/requests';
 import { btnBusy, btnPrimary, card, input, label, pill, successText } from '../../components/ui/kit';
 import { FileDropzone } from '../../components/ui/FileDropzone';
 import { Select } from '../../components/ui/Select';
@@ -16,10 +16,12 @@ export function StudentSupportPage() {
   const t = useT();
   const { data: myRequests } = useMyRequests();
   const create = useCreatePrintingRequest();
+  const { data: dependants } = useDependants();
 
   const [serviceType, setServiceType] = useState<string>(PRINTING_SERVICES[0]);
   const [copies, setCopies] = useState('1');
   const [file, setFile] = useState<File | null>(null);
+  const [beneficiary, setBeneficiary] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   const isLaminating = serviceType === 'Laminating';
@@ -36,7 +38,12 @@ export function StudentSupportPage() {
       return;
     }
     try {
-      await create.mutateAsync({ serviceType, copies: n, file });
+      await create.mutateAsync({
+        serviceType,
+        copies: n,
+        file,
+        ...(beneficiary ? { beneficiaryCensusRecordId: beneficiary } : {}),
+      });
       setSuccessMsg(
         isLaminating && !file
           ? t('✅ Laminating request filed — drop off your document at the Barangay Hall front desk.')
@@ -83,6 +90,30 @@ export function StudentSupportPage() {
             />
           </div>
         </div>
+
+        {/* Only heads of family receive a non-empty list, so this control is
+            absent for everyone else. Schoolwork for a child too young to hold
+            an account is the ordinary case for this service. */}
+        {(dependants?.length ?? 0) > 0 && (
+          <>
+            <label style={label}>{t('Who is this for?')}</label>
+            <Select
+              value={beneficiary}
+              onChange={(v) => { setBeneficiary(v); setSuccessMsg(''); }}
+              options={[
+                { value: '', labelText: t('Myself') },
+                ...(dependants ?? []).map((d) => ({
+                  value: d.censusRecordId,
+                  labelText: t('{name} — age {age}', { name: d.fullName, age: d.age }),
+                })),
+              ]}
+              style={{ marginBottom: 6 }}
+            />
+            <p style={{ fontSize: 12.5, color: '#64748B', margin: '4px 0 12px', lineHeight: 1.55 }}>
+              {t('As head of the family you may file for the minors in your household — they do not need their own account.')}
+            </p>
+          </>
+        )}
 
         <label style={label}>
           {t('Upload Document (PDF or Word')}{isLaminating ? t(' · optional — you may drop off instead') : ''})

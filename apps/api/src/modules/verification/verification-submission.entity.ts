@@ -39,6 +39,24 @@ export class VerificationSubmission {
   @Column({ name: 'upload_id', type: 'varchar', length: 36 })
   uploadId: string;
 
+  /**
+   * The resident declared their surname changed by marriage, so the primary
+   * document carries a maiden name the census no longer uses.
+   */
+  @Column({ name: 'surname_changed_by_marriage', type: 'boolean', default: false })
+  surnameChangedByMarriage: boolean;
+
+  /**
+   * Marriage certificate backing that declaration. Read together with the
+   * primary document by the cross-check, and shown to staff alongside it.
+   */
+  @ManyToOne(() => Upload, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'supporting_upload_id' })
+  supportingUpload: Upload | null;
+
+  @Column({ name: 'supporting_upload_id', type: 'varchar', length: 36, nullable: true })
+  supportingUploadId: string | null;
+
   @Column({ name: 'ocr_text', type: 'text', nullable: true })
   ocrText: string | null;
 
