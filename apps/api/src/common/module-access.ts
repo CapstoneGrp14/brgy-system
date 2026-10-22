@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../modules/users/user.entity';
-import type { RequestUser } from './decorators';
+import { ROLES_KEY, type RequestUser } from './decorators';
 
 export const MODULE_KEY = 'requiredStaffModule';
 
@@ -44,6 +44,30 @@ export class ModuleAccessGuard implements CanActivate {
     // Residents never carry staff modules — their own role guard already
     // governs these routes. Admins keep full oversight by design.
     if (user.role !== Role.EMPLOYEE) return true;
+
+    // A module grant governs what an employee may do *as staff*. It must never
+    // reach a route that also serves residents, because several of these
+    // controllers carry the decorator at class level and so cover both sides:
+    // /bookings has both the staff queue and the resident's own bookings,
+    // /verification both the approval queue and the resident's own submission.
+    //
+    // Without this, revoking a module from a staff member who is also a
+    // resident of the barangay (dual role) stripped their *own* entitlements —
+    // a Lupon-only employee could not read an evacuation announcement, request
+    // medicine, or even get themselves verified.
+    //
+    // "Serves residents" is derived from the route's own @Roles metadata, not
+    // from anything the client sends, so it cannot be used to slip past the
+    // gate: a staff-only route still resolves to staff-only roles here. Routes
+    // with no @Roles at all are reachable by any authenticated account
+    // including plain residents, so withholding them from one employee would
+    // protect nothing.
+    const roles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    const servesResidents = !roles?.length || roles.includes(Role.RESIDENT);
+    if (servesResidents) return true;
 
     // Read the current grant rather than a token claim: an administrator
     // withdrawing access expects it to apply now, not when the access token

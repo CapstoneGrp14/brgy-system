@@ -292,6 +292,75 @@ instead. Add a padded 512×512 variant to reinstate it.
 
 ---
 
+## 9. Fix: revoking a staff module stripped the same person's resident access
+
+Reported against a **dual-role** account — a barangay employee who is also a
+resident of the barangay (one login, `role = EMPLOYEE` plus a `resident_profile`
+row). Withholding a module from their staff side also withheld it from their
+resident side.
+
+**Cause.** `@RequiresModule` sits at **class level** on six controllers that
+serve *both* portals. `/bookings` carries the staff approval queue *and* the
+resident's own bookings; `/verification` carries the approval queue *and* the
+resident's own submission. The guard only skipped non-employees, so for a
+dual-role employee it gated every route on those classes — resident ones
+included.
+
+**It was wider than the module revoked.** Setting a Lupon member to
+`["complaints"]` and replaying their own resident calls:
+
+```
+GET /bookings/mine                   403   <- own bookings
+GET /bookings/facilities             403
+GET /complaints/mine                 200   (only because complaints was granted)
+GET /verification/mine               403   <- own verification status
+GET /verification/doc-types          403   <- could not even start getting verified
+GET /inventory/available             403   <- could not request medicine
+GET /announcements                   403   <- could not read an evacuation notice
+GET /charter                         403   <- could not read the citizen's charter
+GET /templates/document-types        403   <- could not request a document
+```
+
+**Fix.** `ModuleAccessGuard` now derives whether a route serves residents from
+the route's own `@Roles` metadata, and a staff module grant never gates such a
+route. A grant governs what someone may do *as staff*; it is not a statement
+about their entitlements as a resident of the barangay.
+
+The signal is server-derived, never client-supplied, so it cannot be used to
+slip past the gate — a staff-only route still resolves to staff-only roles.
+Routes with no `@Roles` at all (`/bookings/facilities`, `/bookings/slots`,
+`/verification/doc-types`) are already reachable by every resident, so
+withholding them from one employee protected nothing.
+
+After the fix, same account, same token, same `["complaints"]` grant:
+
+```
+resident side   bookings/mine · verification/mine · doc-types · announcements
+                charter · inventory/available · requests/mine · dependants    200
+                POST /bookings (his own)                                      201
+staff side      bookings/queue · verification/queue · inventory · masterlist
+                templates · health-queue · printing-queue                     403
+                POST /bookings/:id/decide                                     403
+                complaints/queue · complaints/actions  (granted module)       200
+```
+
+**No escalation for staff who are not residents.** Verified with a temporary
+staff-only employee on the same grant: every `@Roles(Role.RESIDENT)` route still
+returns 403, because `RolesGuard` admits staff there only when `isResident` is
+true. The only routes a module-restricted employee newly reaches are the
+announcements, charter, document-type and facility lists — reference data every
+resident already reads.
+
+The web side needed no change: `navFor(portal, …)` keys off the **portal** being
+rendered rather than the account's role, so the resident sidebar was never
+filtered; and resident routes use `RequireVerified`, not `RequireModule`.
+
+Covered by 10 new regression checks (`50 / 50`), which flip the grant through
+the admin API and restore it afterwards.
+
+
+---
+
 ## Known caveats
 
 **Permission changes are stale in the UI until `/users/me` refetches.** The API
@@ -313,7 +382,7 @@ giving the worker its own output directory.
 ## Verification
 
 Typecheck clean across `@brgy/shared`, `@brgy/api`, `@brgy/web`.
-Regression suite **40 / 40** after each change. Web bundle builds clean.
+Regression suite **50 / 50** after each change. Web bundle builds clean.
 
 Checks run against the live system rather than assumed:
 
@@ -322,6 +391,7 @@ head of family  → sees "Miguel Potolin (13)"
 non-head        → sees nobody
 cross-household → BLOCKED
 module revoked  → /masterlist 403, /complaints/queue 200, same token
+dual role       → staff module revoked; resident side still 200, staff side 403
 urgent push     → "0 delivered, 1 dead endpoint(s) pruned"   (synthetic endpoint)
 login + 2FA     → password → challenge → emailed code → token
 ```
