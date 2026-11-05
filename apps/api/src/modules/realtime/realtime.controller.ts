@@ -81,6 +81,13 @@ export class RealtimeController {
     return this.sos.mine(user.id);
   }
 
+  /** Lets the button show a paused state instead of failing on press. */
+  @Get('sos/cooldown')
+  @Roles(Role.RESIDENT)
+  cooldown(@CurrentUser() user: RequestUser) {
+    return this.sos.cooldown(user.id);
+  }
+
   @Post('sos/cancel')
   @Roles(Role.RESIDENT)
   async cancel(@CurrentUser() user: RequestUser) {
@@ -103,6 +110,18 @@ export class RealtimeController {
   @Roles(Role.EMPLOYEE, Role.ADMIN)
   hotspot() {
     return this.sos.hotspot();
+  }
+
+  /**
+   * Staff override for a spam pause. Deliberately not admin-only: the people
+   * watching the map are the ones who can tell a troll from a panicking
+   * resident, and making them escalate costs minutes an emergency may not have.
+   */
+  @RequiresModule('sos')
+  @Post('sos/cooldown/:userId/lift')
+  @Roles(Role.EMPLOYEE, Role.ADMIN)
+  liftCooldown(@Param('userId', ParseUUIDPipe) userId: string, @CurrentUser() user: RequestUser) {
+    return this.sos.liftCooldown(userId, { label: user.fullName, actorId: user.id });
   }
 
   @RequiresModule('sos')

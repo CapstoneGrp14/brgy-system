@@ -1,11 +1,27 @@
 import { isWithinBarangay } from '@brgy/shared';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeGateway } from './realtime.gateway';
 import { SosAlert } from './sos-alert.entity';
+import { SosThrottle } from './sos-throttle.entity';
+
+/**
+ * Escalating allowance before a cooldown, by tier. Index = tier.
+ * Tier 0 permits five new alerts, then three, then one.
+ */
+const TIER_ALLOWANCE = [5, 3, 1];
+/** Cooldown served for exhausting each tier, in minutes. */
+const TIER_COOLDOWN_MINUTES = [5, 5, 30];
+/** A quiet hour clears the record, so tiers never accumulate for life. */
+const WINDOW_MINUTES = 60;
 
 export interface SosAlertView {
   id: string;
@@ -24,6 +40,7 @@ export interface SosAlertView {
 export class SosService {
   constructor(
     @InjectRepository(SosAlert) private readonly alerts: Repository<SosAlert>,
+    @InjectRepository(SosThrottle) private readonly throttle: Repository<SosThrottle>,
     private readonly gateway: RealtimeGateway,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
@@ -74,6 +91,10 @@ export class SosService {
     }
     let alert = await this.alerts.findOne({ where: { userId: user.id, status: 'ACTIVE' } });
     const isNew = !alert;
+    // The cooldown governs *raising* an alert, never refreshing one that is
+    // already live. Someone whose emergency is in progress keeps sending
+    // position updates no matter what their history looks like.
+    if (isNew) await this.assertNotCoolingDown(user);
     if (!alert) alert = this.alerts.create({ userId: user.id, status: 'ACTIVE' });
     alert.lat = coords.lat === null ? null : coords.lat.toFixed(7);
     alert.lng = coords.lng === null ? null : coords.lng.toFixed(7);
@@ -93,8 +114,113 @@ export class SosService {
         action: 'Triggered Emergency SOS',
         target: view.lat !== null ? `${view.lat}, ${view.lng}` : 'no GPS fix',
       });
+      await this.recordAlert(user);
     }
     return view;
+  }
+
+  /**
+   * Refuse a *new* alert while the resident is cooling down.
+   *
+   * The message always carries 911 and the exact unlock time: a cooldown that
+   * says only "you are blocked" to someone in trouble is worse than no
+   * cooldown at all.
+   */
+  private async assertNotCoolingDown(user: { id: string; fullName: string }): Promise<void> {
+    const row = await this.throttle.findOne({ where: { userId: user.id } });
+    if (!row?.lockedUntil) return;
+    const now = new Date();
+    if (row.lockedUntil <= now) return;
+    const minutes = Math.max(1, Math.ceil((row.lockedUntil.getTime() - now.getTime()) / 60_000));
+    const until = row.lockedUntil.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    throw new ForbiddenException({
+      message:
+        `The Emergency SOS button is paused on your account for ${minutes} more minute(s), until ${until}, ` +
+        `because it was raised repeatedly in a short time. ` +
+        `If this is a real emergency call 911 now, or go to the Barangay Hall — do not wait for the timer.`,
+      lockedUntil: row.lockedUntil.toISOString(),
+      minutesRemaining: minutes,
+      reason: row.lockedReason ?? 'Repeated SOS alerts',
+    });
+  }
+
+  /**
+   * Count a newly raised alert, and start a cooldown if it exhausts the tier.
+   *
+   * Counting happens after the alert is saved, deliberately: the resident who
+   * trips the limit still gets the help they just asked for, and only the
+   * *next* attempt is refused.
+   */
+  private async recordAlert(user: { id: string; fullName: string }): Promise<void> {
+    const now = new Date();
+    const row =
+      (await this.throttle.findOne({ where: { userId: user.id } })) ??
+      this.throttle.create({ userId: user.id, alertsInWindow: 0, tier: 0, windowStartedAt: now });
+
+    // An hour of quiet wipes the slate, so a resident with one bad night does
+    // not carry a troll's penalty into next week.
+    const stale =
+      !row.windowStartedAt || now.getTime() - row.windowStartedAt.getTime() > WINDOW_MINUTES * 60_000;
+    if (stale) {
+      row.alertsInWindow = 0;
+      row.tier = 0;
+      row.windowStartedAt = now;
+      row.lockedUntil = null;
+      row.lockedReason = null;
+    }
+
+    row.alertsInWindow += 1;
+    const tier = Math.min(row.tier, TIER_ALLOWANCE.length - 1);
+    if (row.alertsInWindow >= TIER_ALLOWANCE[tier]) {
+      const minutes = TIER_COOLDOWN_MINUTES[tier];
+      row.lockedUntil = new Date(now.getTime() + minutes * 60_000);
+      row.lockedReason = 'Trolling or spamming the Emergency SOS button';
+      row.alertsInWindow = 0;
+      row.tier = Math.min(row.tier + 1, TIER_ALLOWANCE.length - 1);
+      row.windowStartedAt = now;
+      this.audit.log({
+        actorLabel: 'SOS Spam Guard',
+        actorId: user.id,
+        action: `SOS Paused ${minutes}m`,
+        target: `${user.fullName} — ${row.lockedReason}`,
+      });
+      await this.notifications.notifyStaff(
+        `⏸️ SOS paused ${minutes}m for ${user.fullName} — repeated alerts. Lift it from the SOS map if genuine.`,
+        'sos',
+      );
+    }
+    await this.throttle.save(row);
+  }
+
+  /** Current cooldown for a resident, or null when clear. */
+  async cooldown(userId: string): Promise<{ lockedUntil: string; reason: string } | null> {
+    const row = await this.throttle.findOne({ where: { userId } });
+    if (!row?.lockedUntil || row.lockedUntil <= new Date()) return null;
+    return {
+      lockedUntil: row.lockedUntil.toISOString(),
+      reason: row.lockedReason ?? 'Repeated SOS alerts',
+    };
+  }
+
+  /**
+   * Staff override. A pause is a guess about intent, and the people who can
+   * see the resident and the map are better placed to judge than a counter.
+   */
+  async liftCooldown(userId: string, by: { label: string; actorId?: string }): Promise<void> {
+    const row = await this.throttle.findOne({ where: { userId } });
+    if (!row) throw new NotFoundException('That resident has no SOS pause.');
+    row.lockedUntil = null;
+    row.lockedReason = null;
+    row.alertsInWindow = 0;
+    row.tier = 0;
+    row.liftedBy = by.label;
+    await this.throttle.save(row);
+    this.audit.log({
+      actorLabel: by.label,
+      actorId: by.actorId,
+      action: 'Lifted SOS Pause',
+      target: userId,
+    });
   }
 
   async mine(userId: string): Promise<SosAlertView | null> {

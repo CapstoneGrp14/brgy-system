@@ -11,13 +11,14 @@ import { ChatService } from './chat.service';
 import { RealtimeController } from './realtime.controller';
 import { RealtimeGateway } from './realtime.gateway';
 import { SosAlert } from './sos-alert.entity';
+import { SosThrottle } from './sos-throttle.entity';
 import { SosService } from './sos.service';
 
 /** Global so NotificationsService can push live events without import cycles. */
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SosAlert, ChatMessage, AssistantQuery]),
+    TypeOrmModule.forFeature([SosAlert, SosThrottle, ChatMessage, AssistantQuery]),
     JwtModule.register({}),
     AuditModule,
     CharterModule,
