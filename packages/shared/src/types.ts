@@ -101,9 +101,41 @@ export interface CensusHistoryRow {
   changedAt: string;
 }
 
+/**
+ * One household in the masterlist, shown as a single collapsed row.
+ *
+ * The flat per-resident list was unreadable at barangay scale — a household of
+ * six repeated the same address six times. The list pages by household now and
+ * only the owner's row is visible until staff open it.
+ */
+export interface MasterlistHousehold {
+  /** Stable grouping key: the household id, or the record id when unassigned. */
+  key: string;
+  /** Household code (HH-0001), or null for a resident with no household yet. */
+  code: string | null;
+  address: string;
+  purok: string | null;
+  /**
+   * The row shown while collapsed — the assigned head, or the eldest member
+   * standing in until staff name one (see `headAssigned`).
+   */
+  owner: MasterlistRow;
+  /** The owner's own record satisfies the active filters (false = context only). */
+  ownerMatched: boolean;
+  /** Revealed when the household is opened. Narrowed to matches while filtering. */
+  dependents: MasterlistRow[];
+  /** People on file here, owner included — ignores the active filters. */
+  size: number;
+  /** Staff have formally named a head, so `owner` is an authority not a guess. */
+  headAssigned: boolean;
+}
+
 export interface MasterlistResponse {
-  items: MasterlistRow[];
+  items: MasterlistHousehold[];
+  /** Households matching the filters — the unit this list pages by. */
   total: number;
+  /** Resident records matching the filters, across every page. */
+  residentTotal: number;
   page: number;
   pageSize: number;
   householdCount: number;

@@ -1,5 +1,5 @@
-import { CensusCategory, Role, type MasterlistRow } from '@brgy/shared';
-import { useState } from 'react';
+import { CensusCategory, Role, type MasterlistHousehold, type MasterlistRow } from '@brgy/shared';
+import { Fragment, useState, type ReactNode } from 'react';
 import { downloadMasterlistCsv, type ImportErrorBody, useAddRecord, useCensusHistory, useDeleteRecord, useImportCsv, useMasterlist, useSetHouseholdHead, useUpdateRecord } from '../../api/masterlist';
 import { card, cols, input, label, pill, tableFixed, td, th } from '../../components/ui/kit';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
@@ -40,6 +40,12 @@ export function MasterlistPage() {
   const [importMode, setImportMode] = useState<'append' | 'refresh' | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /**
+   * Households the operator has opened or closed by hand. Keys that aren't here
+   * follow `filtering`: searching for a dependent has to reveal them without a
+   * second click, while an explicit collapse still overrides that default.
+   */
+  const [openHouseholds, setOpenHouseholds] = useState<Record<string, boolean>>({});
   const { data: historyRows, isLoading: historyLoading } = useCensusHistory(expandedId);
   const { data } = useMasterlist({ search, category, account, status, page, pageSize });
   const addRecord = useAddRecord();
@@ -50,7 +56,9 @@ export function MasterlistPage() {
   const [importError, setImportError] = useState<ImportErrorBody | null>(null);
   const saving = addRecord.isPending || updateRecord.isPending;
 
+  // Households, not residents — the list pages by household now.
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
+  const filtering = !!(search.trim() || category || account || status);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -169,6 +177,215 @@ export function MasterlistPage() {
     }
   };
 
+  /** The expanded "previous data" strip under a resident's row. */
+  const historyStrip = (r: MasterlistRow) => (
+    <tr>
+      <td colSpan={9} style={{ padding: 0, borderBottom: '1px solid #F0F3F8' }}>
+        <div style={{ background: '#F8FAFD', padding: '14px 20px 14px 46px' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: '#7E8CA3', marginBottom: 8 }}>
+            {t('PREVIOUS DATA — {name}', { name: r.fullName.toUpperCase() })}
+          </div>
+          {historyLoading && <div style={{ fontSize: 12.5, color: '#8A97AB' }}>{t('Loading history…')}</div>}
+          {!historyLoading && (historyRows ?? []).length === 0 && (
+            <div style={{ fontSize: 12.5, color: '#8A97AB' }}>
+              {t("No previous versions — this record hasn't been changed by a census refresh yet.")}
+            </div>
+          )}
+          {(historyRows ?? []).map((h) => (
+            <div key={h.id} style={{ display: 'flex', gap: 14, padding: '8px 0', borderTop: '1px solid #EDF0F5', fontSize: 12.5, flexWrap: 'wrap' }}>
+              <span style={{ color: '#21409A', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                {new Date(h.changedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+              <span style={{ color: '#C96A11', fontWeight: 600, whiteSpace: 'nowrap' }}>{h.note}</span>
+              <span style={{ color: '#4A5A74' }}>
+                {t('was:')} {h.address}
+                {h.purok ? ` · ${h.purok}` : ''} · {t((CATEGORY_PILL[h.category] ?? CATEGORY_PILL.REGULAR).text)}
+                {h.householdCode ? ` · ${h.householdCode}` : ''}
+                {h.lguEligibility ? ` · ${h.lguEligibility}` : ''}
+                {!h.wasActive ? ` · ${t('was Inactive')}` : ''}
+              </span>
+              <span style={{ color: '#9AA6B7', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{t('by {name}', { name: h.changedBy })}</span>
+            </div>
+          ))}
+        </div>
+      </td>
+    </tr>
+  );
+
+  /**
+   * One resident's row. Shared by the household owner and the dependents
+   * revealed beneath them, so a dependent keeps every action — edit, delete,
+   * promote to head — that it had in the old flat list.
+   */
+  const residentRow = (
+    r: MasterlistRow,
+    householdCell: ReactNode,
+    dependent: boolean,
+    notes?: ReactNode,
+  ) => {
+    const cat = CATEGORY_PILL[r.category] ?? CATEGORY_PILL.REGULAR;
+    const priority = r.category !== 'REGULAR';
+    const expanded = expandedId === r.id;
+    return (
+      <Fragment key={r.id}>
+        <tr style={{ ...(dependent ? { background: '#FBFCFE' } : {}), ...(r.isActive ? {} : { opacity: 0.55 }) }}>
+          <td style={{ ...td, fontWeight: 700, color: '#21409A', verticalAlign: 'top' }}>{householdCell}</td>
+          <td style={{ ...td, fontWeight: dependent ? 600 : 700, paddingLeft: dependent ? 26 : undefined }}>
+            {dependent && <span style={{ color: '#B9C3D1', marginRight: 7, fontWeight: 400 }}>↳</span>}
+            {r.fullName}
+            {/* The head may transact for the minors in this household,
+                so the role is shown on the row, not buried in a dialog. */}
+            {r.isHouseholdHead && (
+              <span style={{ ...pill('blue'), marginLeft: 8 }} title={t('May request services for the minors in this household')}>
+                {t('Head of Family')}
+              </span>
+            )}
+            {!r.isActive && <span style={{ ...pill('gray'), marginLeft: 8 }}>{t('Inactive')}</span>}
+            {notes}
+            {r.hasHistory && (
+              <button
+                onClick={() => setExpandedId(expanded ? null : r.id)}
+                title={expanded ? t('Hide history') : t('Show previous data')}
+                style={{ background: 'none', border: 'none', padding: 0, marginLeft: 8, cursor: 'pointer', color: '#8A97AB', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                {expanded ? t('Hide history') : t('History')}
+              </button>
+            )}
+          </td>
+          <td style={td}>
+            {r.birthdate ? (
+              <>
+                {new Date(r.birthdate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                <span style={{ color: '#8A97AB' }}>
+                  {' '}· {t('{n} yrs', { n: Math.floor((Date.now() - new Date(r.birthdate + 'T00:00').getTime()) / (365.25 * 24 * 3600 * 1000)) })}
+                </span>
+              </>
+            ) : (
+              <span style={{ color: '#9AA6B7' }}>—</span>
+            )}
+          </td>
+          <td style={td}>{r.address}{r.purok ? ` · ${r.purok}` : ''}</td>
+          <td style={td}><span style={pill(cat.kind)}>{t(cat.text)}</span></td>
+          <td style={td}><span style={pill(priority ? 'orange' : 'gray')}>{priority ? t('Priority Queue') : t('Standard')}</span></td>
+          <td style={td}>{r.lguEligibility ? <span style={pill(r.lguEligibility.startsWith('Eligible') ? 'green' : 'yellow')}>{r.lguEligibility}</span> : <span style={{ color: '#9AA6B7' }}>N/A</span>}</td>
+          <td style={td}>
+            {r.registered ? (
+              r.accountActive === false ? (
+                <span style={pill('red')}>{t('Account disabled')}</span>
+              ) : (
+                <span style={pill('green')}>{t('Registered')}</span>
+              )
+            ) : (
+              <span style={{ color: '#9AA6B7', fontSize: 12.5 }}>{t('No account')}</span>
+            )}
+          </td>
+          <td style={td}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => void onToggleHead(r)}
+                disabled={setHead.isPending || !r.householdCode}
+                title={
+                  !r.householdCode
+                    ? t('Assign a household code first.')
+                    : r.isHouseholdHead
+                      ? t('Remove as head of family')
+                      : t('Make head of family')
+                }
+                style={{ background: 'none', border: 'none', color: !r.householdCode ? '#C3CBD8' : '#21409A', fontWeight: 700, fontSize: 12.5, cursor: !r.householdCode ? 'not-allowed' : 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
+              >
+                {r.isHouseholdHead ? t('Unset Head') : t('Set Head')}
+              </button>
+              <button
+                type="button"
+                onClick={() => startEdit(r)}
+                style={{ background: 'none', border: 'none', color: '#1E3A5F', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
+              >
+                {t('Edit')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(r)}
+                disabled={deleteRecord.isPending}
+                title={r.registered ? t('Registered residents cannot be deleted — mark inactive instead.') : t('Delete')}
+                style={{ background: 'none', border: 'none', color: r.registered ? '#C3CBD8' : '#C0392B', fontWeight: 700, fontSize: 12.5, cursor: r.registered ? 'not-allowed' : 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
+              >
+                {t('Delete')}
+              </button>
+            </div>
+          </td>
+        </tr>
+        {expanded && historyStrip(r)}
+      </Fragment>
+    );
+  };
+
+  /**
+   * One household: the owner's row, with the rest of the family folded away
+   * behind it. A one-person household has nothing to fold, so it gets no
+   * toggle and simply reads as that resident's own row.
+   */
+  const householdRows = (hh: MasterlistHousehold) => {
+    const open = openHouseholds[hh.key] ?? filtering;
+    const canOpen = hh.size > 1;
+    const code = hh.code ?? t('No household');
+    const householdCell = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {canOpen ? (
+          <button
+            type="button"
+            onClick={() => setOpenHouseholds((o) => ({ ...o, [hh.key]: !open }))}
+            aria-expanded={open}
+            title={open ? t('Hide the rest of this household') : t('Show the rest of this household')}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#21409A', font: '700 14.5px Poppins, sans-serif', display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left' }}
+          >
+            <span style={{ fontSize: 9, color: '#64748B' }}>{open ? '▼' : '▶'}</span>
+            {code}
+          </button>
+        ) : (
+          <span>{code}</span>
+        )}
+        {canOpen && (
+          <span style={{ fontWeight: 600, fontSize: 11.5, color: '#8A97AB', paddingLeft: 15 }}>
+            {t('{n} members', { n: hh.size })}
+          </span>
+        )}
+      </div>
+    );
+    const notes = (
+      <>
+        {/* The owner slot is filled by the eldest member until staff name a
+            head, so say which of the two this row is. */}
+        {!hh.headAssigned && canOpen && (
+          <span
+            style={{ ...pill('yellow'), marginLeft: 8 }}
+            title={t('Shown as the household owner by age. Use Set Head to confirm who transacts for this household.')}
+          >
+            {t('Head not set')}
+          </span>
+        )}
+        {filtering && !hh.ownerMatched && (
+          <span style={{ marginLeft: 8, fontSize: 11.5, color: '#9AA6B7', fontWeight: 600 }}>
+            {t('owner — not a match')}
+          </span>
+        )}
+      </>
+    );
+    return (
+      <Fragment key={hh.key}>
+        {residentRow(hh.owner, householdCell, false, notes)}
+        {open && hh.dependents.map((d) => residentRow(d, null, true))}
+        {open && hh.dependents.length === 0 && (
+          <tr>
+            <td colSpan={9} style={{ ...td, paddingLeft: 40, fontSize: 12.5, color: '#8A97AB', background: '#FBFCFE' }}>
+              {t('No one else in this household matches the current filters.')}
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  };
+
   return (
     <div style={{ ...card, padding: '20px 26px' }}>
       {/* Title row: heading left, actions right */}
@@ -176,7 +393,7 @@ export function MasterlistPage() {
         <div>
           <h2 style={{ margin: 0, font: '700 16px Poppins, sans-serif', color: '#1E3A5F' }}>{t('Comprehensive Masterlist Registry')}</h2>
           <p style={{ fontSize: 12.5, color: '#8A97AB', margin: '4px 0 0' }}>
-            {t('{residents} residents · {households} households · used for queue priority and LGU eligibility only — no financial data', { residents: data?.total ?? 0, households: data?.householdCount ?? 0 })}
+            {t('{residents} residents · {households} households · used for queue priority and LGU eligibility only — no financial data', { residents: data?.residentTotal ?? 0, households: data?.householdCount ?? 0 })}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -222,12 +439,12 @@ export function MasterlistPage() {
             style={{ ...input, width: '100%', padding: '11px 13px 11px 38px' }}
             placeholder={t('Search by name, address, or household code…')}
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); setOpenHouseholds({}); }}
           />
         </div>
         <Select
           value={category}
-          onChange={(v) => { setCategory(v); setPage(1); }}
+          onChange={(v) => { setCategory(v); setPage(1); setOpenHouseholds({}); }}
           options={[
             { value: '', labelText: t('All Categories') },
             ...Object.values(CensusCategory).map((c) => ({ value: c, labelText: t(CATEGORY_PILL[c].text) })),
@@ -236,7 +453,7 @@ export function MasterlistPage() {
         />
         <Select
           value={account}
-          onChange={(v) => { setAccount(v); setPage(1); }}
+          onChange={(v) => { setAccount(v); setPage(1); setOpenHouseholds({}); }}
           options={[
             { value: '', labelText: t('All Accounts') },
             { value: 'registered', labelText: t('With Account') },
@@ -246,7 +463,7 @@ export function MasterlistPage() {
         />
         <Select
           value={status}
-          onChange={(v) => { setStatus(v); setPage(1); }}
+          onChange={(v) => { setStatus(v); setPage(1); setOpenHouseholds({}); }}
           options={[
             { value: '', labelText: t('All Status') },
             { value: 'active', labelText: t('Active') },
@@ -287,9 +504,9 @@ export function MasterlistPage() {
       )}
 
       <div style={{ overflowX: 'auto', marginTop: 8 }}>
-        <table style={tableFixed(1320)}>
+        <table style={tableFixed(1400)}>
           <colgroup>
-            {cols('9%', '14%', '12%', '14%', '11%', '10%', '10%', '9%', '11%').map((c) => (
+            {cols('11%', '18%', '11%', '12%', '10%', '9%', '9%', '9%', '11%').map((c) => (
               <col key={c.key} style={c.style} />
             ))}
           </colgroup>
@@ -307,134 +524,14 @@ export function MasterlistPage() {
             </tr>
           </thead>
           <tbody>
-            {(data?.items ?? []).map((r, i, arr) => {
-              const cat = CATEGORY_PILL[r.category] ?? CATEGORY_PILL.REGULAR;
-              const priority = r.category !== 'REGULAR';
-              const firstOfHousehold = i === 0 || arr[i - 1].householdCode !== r.householdCode;
-              const expanded = expandedId === r.id;
-              return (
-                <>
-                <tr key={r.id} style={r.isActive ? {} : { opacity: 0.55 }}>
-                  <td style={{ ...td, fontWeight: 700, color: '#21409A' }}>{firstOfHousehold ? (r.householdCode ?? '—') : ''}</td>
-                  <td style={{ ...td, fontWeight: 700 }}>
-                    {r.hasHistory && (
-                      <button
-                        onClick={() => setExpandedId(expanded ? null : r.id)}
-                        title={expanded ? t('Hide history') : t('Show previous data')}
-                        style={{ background: 'none', border: 'none', padding: 0, marginRight: 8, cursor: 'pointer', color: '#64748B', fontSize: 11, verticalAlign: 'middle' }}
-                      >
-                        {expanded ? '▼' : '▶'}
-                      </button>
-                    )}
-                    {r.fullName}
-                    {/* The head may transact for the minors in this household,
-                        so the role is shown on the row, not buried in a dialog. */}
-                    {r.isHouseholdHead && (
-                      <span style={{ ...pill('blue'), marginLeft: 8 }} title={t('May request services for the minors in this household')}>
-                        {t('Head of Family')}
-                      </span>
-                    )}
-                    {!r.isActive && <span style={{ ...pill('gray'), marginLeft: 8 }}>{t('Inactive')}</span>}
-                  </td>
-                  <td style={td}>
-                    {r.birthdate ? (
-                      <>
-                        {new Date(r.birthdate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        <span style={{ color: '#8A97AB' }}>
-                          {' '}· {t('{n} yrs', { n: Math.floor((Date.now() - new Date(r.birthdate + 'T00:00').getTime()) / (365.25 * 24 * 3600 * 1000)) })}
-                        </span>
-                      </>
-                    ) : (
-                      <span style={{ color: '#9AA6B7' }}>—</span>
-                    )}
-                  </td>
-                  <td style={td}>{r.address}{r.purok ? ` · ${r.purok}` : ''}</td>
-                  <td style={td}><span style={pill(cat.kind)}>{t(cat.text)}</span></td>
-                  <td style={td}><span style={pill(priority ? 'orange' : 'gray')}>{priority ? t('Priority Queue') : t('Standard')}</span></td>
-                  <td style={td}>{r.lguEligibility ? <span style={pill(r.lguEligibility.startsWith('Eligible') ? 'green' : 'yellow')}>{r.lguEligibility}</span> : <span style={{ color: '#9AA6B7' }}>N/A</span>}</td>
-                  <td style={td}>
-                    {r.registered ? (
-                      r.accountActive === false ? (
-                        <span style={pill('red')}>{t('Account disabled')}</span>
-                      ) : (
-                        <span style={pill('green')}>{t('Registered')}</span>
-                      )
-                    ) : (
-                      <span style={{ color: '#9AA6B7', fontSize: 12.5 }}>{t('No account')}</span>
-                    )}
-                  </td>
-                  <td style={td}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => void onToggleHead(r)}
-                        disabled={setHead.isPending || !r.householdCode}
-                        title={
-                          !r.householdCode
-                            ? t('Assign a household code first.')
-                            : r.isHouseholdHead
-                              ? t('Remove as head of family')
-                              : t('Make head of family')
-                        }
-                        style={{ background: 'none', border: 'none', color: !r.householdCode ? '#C3CBD8' : '#21409A', fontWeight: 700, fontSize: 12.5, cursor: !r.householdCode ? 'not-allowed' : 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
-                      >
-                        {r.isHouseholdHead ? t('Unset Head') : t('Set Head')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(r)}
-                        style={{ background: 'none', border: 'none', color: '#1E3A5F', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
-                      >
-                        {t('Edit')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(r)}
-                        disabled={deleteRecord.isPending}
-                        title={r.registered ? t('Registered residents cannot be deleted — mark inactive instead.') : t('Delete')}
-                        style={{ background: 'none', border: 'none', color: r.registered ? '#C3CBD8' : '#C0392B', fontWeight: 700, fontSize: 12.5, cursor: r.registered ? 'not-allowed' : 'pointer', padding: '2px 0', flexShrink: 0, whiteSpace: 'nowrap' }}
-                      >
-                        {t('Delete')}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {expanded && (
-                  <tr key={`${r.id}-history`}>
-                    <td colSpan={9} style={{ padding: 0, borderBottom: '1px solid #F0F3F8' }}>
-                      <div style={{ background: '#F8FAFD', padding: '14px 20px 14px 46px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: '#7E8CA3', marginBottom: 8 }}>
-                          {t('PREVIOUS DATA — {name}', { name: r.fullName.toUpperCase() })}
-                        </div>
-                        {historyLoading && <div style={{ fontSize: 12.5, color: '#8A97AB' }}>{t('Loading history…')}</div>}
-                        {!historyLoading && (historyRows ?? []).length === 0 && (
-                          <div style={{ fontSize: 12.5, color: '#8A97AB' }}>
-                            {t("No previous versions — this record hasn't been changed by a census refresh yet.")}
-                          </div>
-                        )}
-                        {(historyRows ?? []).map((h) => (
-                          <div key={h.id} style={{ display: 'flex', gap: 14, padding: '8px 0', borderTop: '1px solid #EDF0F5', fontSize: 12.5, flexWrap: 'wrap' }}>
-                            <span style={{ color: '#21409A', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                              {new Date(h.changedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
-                            <span style={{ color: '#C96A11', fontWeight: 600, whiteSpace: 'nowrap' }}>{h.note}</span>
-                            <span style={{ color: '#4A5A74' }}>
-                              {t('was:')} {h.address}
-                              {h.purok ? ` · ${h.purok}` : ''} · {t((CATEGORY_PILL[h.category] ?? CATEGORY_PILL.REGULAR).text)}
-                              {h.householdCode ? ` · ${h.householdCode}` : ''}
-                              {h.lguEligibility ? ` · ${h.lguEligibility}` : ''}
-                              {!h.wasActive ? ` · ${t('was Inactive')}` : ''}
-                            </span>
-                            <span style={{ color: '#9AA6B7', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{t('by {name}', { name: h.changedBy })}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                </>
-              );
-            })}
+            {(data?.items ?? []).map(householdRows)}
+            {data && data.items.length === 0 && (
+              <tr>
+                <td colSpan={9} style={{ ...td, textAlign: 'center', padding: '28px 12px', color: '#8A97AB', fontSize: 13 }}>
+                  {filtering ? t('No residents match these filters.') : t('No residents on file yet.')}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -523,13 +620,13 @@ export function MasterlistPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12.5, color: '#8A97AB' }}>
-            {t('Showing {from}–{to} of {total} records', { from: data && data.total > 0 ? (page - 1) * pageSize + 1 : 0, to: Math.min(page * pageSize, data?.total ?? 0), total: data?.total ?? 0 })}
+            {t('Showing {from}–{to} of {total} households · {residents} residents', { from: data && data.total > 0 ? (page - 1) * pageSize + 1 : 0, to: Math.min(page * pageSize, data?.total ?? 0), total: data?.total ?? 0, residents: data?.residentTotal ?? 0 })}
           </span>
           <Select
             compact
             value={String(pageSize)}
-            onChange={(v) => { setPageSize(Number(v)); setPage(1); }}
-            options={[8, 15, 30, 50].map((n) => ({ value: String(n), labelText: t('{n} per page', { n }) }))}
+            onChange={(v) => { setPageSize(Number(v)); setPage(1); setOpenHouseholds({}); }}
+            options={[8, 15, 30, 50].map((n) => ({ value: String(n), labelText: t('{n} households per page', { n }) }))}
             style={{ width: 120 }}
           />
         </div>

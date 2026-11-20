@@ -95,9 +95,25 @@ export const masterlist: Record<string, string> = {
   '🔄 Run Census Refresh': '🔄 Patakbuhin ang Census Refresh',
   '📥 Import Records': '📥 Mag-import ng mga Record',
 
+  // Household grouping (one row per household, dependents on expand)
+  '{n} members': '{n} miyembro',
+  'No household': 'Walang sambahayan',
+  'Show the rest of this household': 'Ipakita ang iba pang kasama sa sambahayan',
+  'Hide the rest of this household': 'Itago ang iba pang kasama sa sambahayan',
+  'Head not set': 'Walang nakatakdang ulo',
+  'Shown as the household owner by age. Use Set Head to confirm who transacts for this household.':
+    'Ipinapakita bilang may-ari ng sambahayan ayon sa edad. Gamitin ang Itakdang Ulo para kumpirmahin kung sino ang tumatransaksyon para sa sambahayang ito.',
+  'owner — not a match': 'may-ari — hindi tugma',
+  'No one else in this household matches the current filters.':
+    'Wala nang iba sa sambahayang ito ang tumutugma sa mga filter.',
+  'No residents match these filters.': 'Walang residenteng tumutugma sa mga filter.',
+  'No residents on file yet.': 'Wala pang residente sa talaan.',
+  History: 'Kasaysayan',
+
   // Pagination
-  'Showing {from}–{to} of {total} records': 'Ipinapakita ang {from}–{to} sa {total} record',
-  '{n} per page': '{n} kada pahina',
+  'Showing {from}–{to} of {total} households · {residents} residents':
+    'Ipinapakita ang {from}–{to} sa {total} sambahayan · {residents} residente',
+  '{n} households per page': '{n} sambahayan kada pahina',
 
   // Edit / delete a census record (staff + admin)
   'Edit Census Record': 'I-edit ang Census Record',

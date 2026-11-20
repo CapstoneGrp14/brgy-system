@@ -1,4 +1,10 @@
-import { CensusCategory, CensusHistoryRow, MasterlistResponse, MasterlistRow } from '@brgy/shared';
+import {
+  CensusCategory,
+  CensusHistoryRow,
+  MasterlistHousehold,
+  MasterlistResponse,
+  MasterlistRow,
+} from '@brgy/shared';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -63,6 +69,31 @@ function looksLikeSamePerson(a: string, b: string): boolean {
   const pb = nameParts(b);
   const shared = pa.filter((p) => pb.includes(p));
   return shared.length >= 2;
+}
+
+/**
+ * Who represents a household in the collapsed masterlist.
+ *
+ * The assigned head when staff have named one — that pointer is the same
+ * authority the requests module checks, so the list must not disagree with it.
+ * Failing that the eldest member stands in: a household still has to be
+ * openable before anyone gets round to naming a head, and the eldest is the
+ * likeliest candidate. Records with no birthdate sort last, since an unknown
+ * age is not evidence of youth.
+ */
+function pickOwner(members: CensusRecord[]): { owner: CensusRecord; assigned: boolean } {
+  const headId = members.find((m) => m.household?.headCensusRecordId)?.household
+    ?.headCensusRecordId;
+  const head = headId ? members.find((m) => m.id === headId) : undefined;
+  if (head) return { owner: head, assigned: true };
+  const eldest = [...members].sort((a, b) => {
+    if (!a.birthdate !== !b.birthdate) return a.birthdate ? -1 : 1;
+    if (a.birthdate && b.birthdate && a.birthdate !== b.birthdate) {
+      return a.birthdate < b.birthdate ? -1 : 1;
+    }
+    return a.fullName.localeCompare(b.fullName);
+  });
+  return { owner: eldest[0], assigned: false };
 }
 
 /** Drop the spreadsheet line number — the write path doesn't care about it. */
@@ -184,6 +215,19 @@ export class MasterlistService {
     }));
   }
 
+  /**
+   * The masterlist, grouped one row per household.
+   *
+   * Paging happens over households rather than residents: a flat list repeated
+   * the same address once per family member, which is what made the screen
+   * unreadable. Grouping cannot be done in the browser for the same reason —
+   * a household's members straddle page boundaries — so the grouping is the
+   * query's job, and `pageSize` counts households.
+   *
+   * Filters still match individual residents. A household surfaces when any of
+   * its members match, and the owner's row comes along for context even when
+   * the owner is not itself a match, so every row stays openable.
+   */
   async list(
     search: string,
     page: number,
@@ -192,30 +236,113 @@ export class MasterlistService {
     account?: 'registered' | 'none',
     status?: 'active' | 'inactive',
   ): Promise<MasterlistResponse> {
-    const qb = this.census
+    // Rebuilt per use: the same WHERE feeds the group page, both counts and the
+    // match set, and a shared builder would carry each stage's SELECT onward.
+    const filtered = () => {
+      const qb = this.census.createQueryBuilder('c').leftJoin('c.household', 'h');
+      if (search.trim()) {
+        qb.andWhere('(c.full_name LIKE :s OR c.address LIKE :s OR h.code LIKE :s)', {
+          s: `%${search.trim()}%`,
+        });
+      }
+      if (category) qb.andWhere('c.category = :category', { category });
+      if (status === 'active') qb.andWhere('c.is_active = 1');
+      if (status === 'inactive') qb.andWhere('c.is_active = 0');
+      if (account === 'registered' || account === 'none') {
+        qb.andWhere(
+          `${account === 'registered' ? '' : 'NOT '}EXISTS (SELECT 1 FROM resident_profiles p WHERE p.census_record_id = c.id)`,
+        );
+      }
+      return qb;
+    };
+
+    // A resident with no household is their own group, keyed by record id —
+    // bucketing every unassigned person under one "—" household would hide
+    // them behind each other, which is the problem this grouping solves.
+    const groups = await filtered()
+      .select('COALESCE(c.household_id, c.id)', 'gid')
+      .addSelect('c.household_id', 'hid')
+      .addSelect('MAX(h.code)', 'code')
+      .groupBy('COALESCE(c.household_id, c.id)')
+      .addGroupBy('c.household_id')
+      .orderBy('MAX(h.code) IS NULL', 'ASC')
+      .addOrderBy('MAX(h.code)', 'ASC')
+      .addOrderBy('MIN(c.full_name)', 'ASC')
+      .offset((page - 1) * pageSize)
+      .limit(pageSize)
+      .getRawMany<{ gid: string; hid: string | null; code: string | null }>();
+
+    const totalRow = await filtered()
+      .select('COUNT(DISTINCT COALESCE(c.household_id, c.id))', 'n')
+      .getRawOne<{ n: string | number }>();
+    const total = Number(totalRow?.n ?? 0);
+    const residentTotal = await filtered().getCount();
+    const householdCount = await this.households.count();
+
+    if (!groups.length) {
+      return { items: [], total, residentTotal, page, pageSize, householdCount };
+    }
+
+    // Every member of every household on this page, filters ignored: the owner
+    // and the household size have to be the real ones, not whatever the current
+    // filter happens to select.
+    const householdIds = groups.map((g) => g.hid).filter((id): id is string => !!id);
+    const looseIds = groups.filter((g) => !g.hid).map((g) => g.gid);
+    const members = await this.census
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.household', 'h')
-      .orderBy('h.code', 'ASC')
-      .addOrderBy('c.fullName', 'ASC');
-    if (search.trim()) {
-      qb.andWhere('(c.full_name LIKE :s OR c.address LIKE :s OR h.code LIKE :s)', {
-        s: `%${search.trim()}%`,
+      .where(householdIds.length ? 'c.household_id IN (:...householdIds)' : '1 = 0', { householdIds })
+      .orWhere(looseIds.length ? 'c.id IN (:...looseIds)' : '1 = 0', { looseIds })
+      .orderBy('c.fullName', 'ASC')
+      .getMany();
+
+    // Which of those members the filters actually selected. Only asked when a
+    // filter is on — unfiltered, every member is a match by definition.
+    const filtering = !!(search.trim() || category || account || status);
+    let matched: Set<string> | null = null;
+    if (filtering && members.length) {
+      const ids = members.map((m) => m.id);
+      const hits = await filtered()
+        .select('c.id', 'id')
+        .andWhere('c.id IN (:...ids)', { ids })
+        .getRawMany<{ id: string }>();
+      matched = new Set(hits.map((h) => h.id));
+    }
+
+    const byGroup = new Map<string, CensusRecord[]>();
+    for (const m of members) {
+      const gid = m.householdId ?? m.id;
+      const bucket = byGroup.get(gid);
+      if (bucket) bucket.push(m);
+      else byGroup.set(gid, [m]);
+    }
+
+    const rows = await this.toRows(members);
+    const rowById = new Map(rows.map((r) => [r.id, r]));
+
+    const items: MasterlistHousehold[] = [];
+    for (const g of groups) {
+      const bucket = byGroup.get(g.gid);
+      if (!bucket?.length) continue; // deleted between the two queries
+      const { owner, assigned } = pickOwner(bucket);
+      const ownerRow = rowById.get(owner.id);
+      if (!ownerRow) continue;
+      const rest = bucket.filter((m) => m.id !== owner.id);
+      const shown = matched ? rest.filter((m) => matched.has(m.id)) : rest;
+      items.push({
+        key: g.gid,
+        code: g.code,
+        address: owner.household?.address ?? owner.address,
+        purok: owner.household?.purok ?? owner.purok,
+        owner: ownerRow,
+        ownerMatched: matched ? matched.has(owner.id) : true,
+        dependents: shown.map((m) => rowById.get(m.id)).filter((r): r is MasterlistRow => !!r),
+        size: bucket.length,
+        headAssigned: assigned,
       });
     }
-    if (category) qb.andWhere('c.category = :category', { category });
-    if (status === 'active') qb.andWhere('c.is_active = 1');
-    if (status === 'inactive') qb.andWhere('c.is_active = 0');
-    if (account === 'registered' || account === 'none') {
-      qb.andWhere(
-        `${account === 'registered' ? '' : 'NOT '}EXISTS (SELECT 1 FROM resident_profiles p WHERE p.census_record_id = c.id)`,
-      );
-    }
-    const [records, total] = await qb
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .getManyAndCount();
-    const householdCount = await this.households.count();
-    return { items: await this.toRows(records), total, page, pageSize, householdCount };
+
+    return { items, total, residentTotal, page, pageSize, householdCount };
   }
 
   /** Find-or-create the household for a code (auto-generates HH-xxxx when blank). */
